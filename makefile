@@ -1,20 +1,21 @@
 
-PREFIX=arm-unknown-linux-gnueabi-
-INCLUDE=/home/nick/x-tools/arm-unknown-linux-gnueabi/include
-LIB=/home/nick/x-tools/arm-unknown-linux-gnueabi/lib
+PREFIX=arm-rpi-linux-gnueabi-
+INCLUDE=/home/nick/dev/rpi/include
+LIB=/home/nick/dev/rpi/lib
 SRC=$(wildcard src/*.c)
 OBJ=$(patsubst src/%.c,build/%.o,$(SRC))
 TARGET=bin/drd
-LDFLAGS=-I $(LIB)
+LDFLAGS=-L $(LIB) -l bcm2835
 
 .PHONY: all clean upload
 
 all: $(TARGET)
-	$(PREFIX)strip $(TARGET)
-	@$(PREFIX)size -A $(TARGET) | grep "Total"
+	
 
 $(TARGET): $(OBJ) | bin
-	$(PREFIX)gcc $(LDFLAGS) $(OBJ) -o $@
+	$(PREFIX)gcc -o $@ $(OBJ) $(LDFLAGS) 
+	$(PREFIX)strip $(TARGET)
+	@$(PREFIX)size -A $(TARGET) | grep "Total"
 
 $(OBJ): | build
 
@@ -28,7 +29,7 @@ build/%.o: src/%.c
 	$(PREFIX)gcc $(CFLAGS) -I $(INCLUDE) -c $< -o $@
 
 upload: $(TARGET)
-	#scp
+	scp $(TARGET) root@192.168.0.117:~/drd
 
 clean:
 	rm -rvf $(TARGET) build
