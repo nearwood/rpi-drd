@@ -9,6 +9,8 @@ Raspberry Pi powered robot
 * camera output
 
 Objectives
+==========
+
 1. Basic I/O, SIG handling
 1. Motor PWM output test
 1. Motor Encoder input test
