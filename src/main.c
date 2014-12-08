@@ -53,7 +53,7 @@ uint8_t debug_mode = DEBUG_OFF;
 
 //Ick, globals
 uint8_t aLast = 0, bLast = 0, aCount = 0, bCount = 0;
-uint16_t timeSpan = 1;
+float timeSpan = 0.01;
 
 int showusage(char* arg0)
 {
@@ -237,15 +237,15 @@ int main(int argc, char** argv)
 		aSpeed = motorSpeedA();
 		bSpeed = motorSpeedB();
 
-		mvprintw(0, 0, "MOTOR A: %03d/%05d %03.3f", aCount, timeSpan, aSpeed);
-		mvprintw(1, 0, "MOTOR B: %03d/%05d %03.3f", bCount, timeSpan, bSpeed);
+		mvprintw(0, 0, "MOTOR A: %03d/%05.3f %05.3f ticks/sec", aCount, timeSpan, aSpeed);
+		mvprintw(1, 0, "MOTOR B: %03d/%05.3f %05.3f ticks/sec", bCount, timeSpan, bSpeed);
 
 		delay(100);
-		timeSpan += 100;
+		timeSpan += 0.100;
 
-		if (timeSpan >= 1000)
+		if (timeSpan >= 1)
 		{
-			timeSpan = 1;
+			timeSpan = 0.01;
 			aCount = 0;
 			bCount = 0;
 		}
