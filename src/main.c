@@ -28,6 +28,8 @@
 #include <stdarg.h>
 #include <signal.h>
 
+#include <ncurses/ncurses.h>
+
 #define DRD_VERSION "0.1a"
 
 #define DEBUG_OFF 0
@@ -48,6 +50,10 @@
 
 sig_atomic_t signaled = 0;
 uint8_t debug_mode = DEBUG_OFF;
+
+//Ick, globals
+uint8_t aLast = 0, bLast = 0, aCount = 0, bCount = 0;
+uint16_t timeSpan = 1;
 
 int showusage(char* arg0)
 {
@@ -143,18 +149,34 @@ void sigHandler(int sig)
 	signaled = 1;
 }
 
-int getInput(uint8_t pin)
+//poll encoder, returning 1 if the state has switched, 0 otherwise
+uint8_t encoderTick(uint8_t pin, uint8_t last)
 {
-	//If an input event was detected
-	if (bcm2835_gpio_eds(pin))
+	return (bcm2835_gpio_lev(pin) != last);
+}
+
+//TODO use ref of ints instead of globals
+float motorSpeedA()
+{
+	if (encoderTick(A_ENC, aLast))
 	{
-		//reset the event/pin
-		debug("getInput() on pin: %d", pin);
-		bcm2835_gpio_set_eds(pin);
-		return 1;
+		aLast = !aLast;
+		++aCount;
 	}
 
-	return 0;
+	return aCount / timeSpan;
+}
+
+//float motorSpeed(uint8_t pin, uint8_t* last, uint8_t* count)
+float motorSpeedB()
+{
+	if (encoderTick(B_ENC, bLast))
+	{
+		bLast = !bLast;
+		++bCount;
+	}
+
+	return bCount / timeSpan;
 }
 
 int main(int argc, char** argv)
@@ -170,7 +192,8 @@ int main(int argc, char** argv)
 	signal(SIGINT, sigHandler);
 
 	uint8_t quit = 0;
-	uint8_t a_count = 0, b_count = 0;
+
+	float aSpeed = 0.0, bSpeed = 0.0;
 
 	debug("Initializing BCM2835\n");
 	if (!bcm2835_init()) return 1;
@@ -183,28 +206,58 @@ int main(int argc, char** argv)
 	bcm2835_gpio_fsel(B_ENC, BCM2835_GPIO_FSEL_INPT);
 	//bcm2835_gpio_set_pud(B_ENC, BCM2835_GPIO_PUD_UP);
 
-	//Setup High Detect Enable (High Event nnnnn?)
-	bcm2835_gpio_hen(A_ENC);
-	bcm2835_gpio_hen(B_ENC);
+	bcm2835_gpio_fsel(A_PWM, BCM2835_GPIO_FSEL_OUTP);
+	bcm2835_gpio_fsel(A_IN1, BCM2835_GPIO_FSEL_OUTP);
+	bcm2835_gpio_fsel(A_IN2, BCM2835_GPIO_FSEL_OUTP);
+	bcm2835_gpio_fsel(B_PWM, BCM2835_GPIO_FSEL_OUTP);
+	bcm2835_gpio_fsel(B_IN1, BCM2835_GPIO_FSEL_OUTP);
+	bcm2835_gpio_fsel(B_IN2, BCM2835_GPIO_FSEL_OUTP);
+
+	bcm2835_gpio_fsel(STBY, BCM2835_GPIO_FSEL_OUTP);
+	//bcm2835_gpio_clr(STBY); //make sure it's low
+
+
+	bcm2835_gpio_write(A_IN1, HIGH);
+	bcm2835_gpio_write(A_IN2, LOW);
+	bcm2835_gpio_write(B_IN1, LOW);
+	bcm2835_gpio_write(B_IN2, HIGH);
+
+	bcm2835_gpio_write(A_PWM, HIGH);
+	bcm2835_gpio_write(B_PWM, HIGH);
+
+	debug("Standby off");
+	bcm2835_gpio_set(STBY);
+
+	//Setup ncurses
+	initscr();
+	noecho();
 
 	while (quit == 0)
 	{
-		//if (getInput(A_ENC)) ++a_count;
-		//if (getInput(B_ENC)) ++b_count;
+		aSpeed = motorSpeedA();
+		bSpeed = motorSpeedB();
 
-		debug("MOTOR A: %d\n", a_count);
-		debug("MOTOR B: %d\n", b_count);
+		mvprintw(0, 0, "MOTOR A: %03d/%05d %03.3f", aCount, timeSpan, aSpeed);
+		mvprintw(1, 0, "MOTOR B: %03d/%05d %03.3f", bCount, timeSpan, bSpeed);
 
-		if (bcm2835_gpio_lev(A_ENC))
-			debug("MOTOR A HIGH\n");
+		delay(100);
+		timeSpan += 100;
 
-		if (bcm2835_gpio_lev(B_ENC))
-			debug("MOTOR B HIGH\n");
+		if (timeSpan >= 1000)
+		{
+			timeSpan = 1;
+			aCount = 0;
+			bCount = 0;
+		}
 
-		//delay(500);
+		refresh();
 
 		if (signaled == 1) quit = 1;
 	}
+
+	bcm2835_gpio_clr(STBY);
+
+	endwin();
 
 	debug("Closing BCM2835\n");
 	if (!bcm2835_close()) return 2;

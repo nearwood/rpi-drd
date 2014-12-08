@@ -5,15 +5,15 @@ LIB=/home/nick/dev/rpi/lib
 SRC=$(wildcard src/*.c)
 OBJ=$(patsubst src/%.c,build/%.o,$(SRC))
 TARGET=bin/drd
-LDFLAGS=-L $(LIB) -l bcm2835
+LDFLAGS=-L $(LIB) -l bcm2835 -l ncurses
 
 .PHONY: all clean upload
 
 all: $(TARGET)
-	
+
 
 $(TARGET): $(OBJ) | bin
-	$(PREFIX)gcc -o $@ $(OBJ) $(LDFLAGS) 
+	$(PREFIX)gcc -o $@ $(OBJ) $(LDFLAGS)
 	$(PREFIX)strip $(TARGET)
 	@$(PREFIX)size -A $(TARGET) | grep "Total"
 
