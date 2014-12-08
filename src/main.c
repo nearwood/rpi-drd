@@ -175,9 +175,13 @@ int main(int argc, char** argv)
 	debug("Initializing BCM2835\n");
 	if (!bcm2835_init()) return 1;
 
+	debug("Setting up encoders on pins: %d, %d\n", A_ENC, B_ENC);
 	//Setup encoders for input (SDA and SCL pins already have a pullup!)
 	bcm2835_gpio_fsel(A_ENC, BCM2835_GPIO_FSEL_INPT);
+	//bcm2835_gpio_set_pud(A_ENC, BCM2835_GPIO_PUD_UP);
+
 	bcm2835_gpio_fsel(B_ENC, BCM2835_GPIO_FSEL_INPT);
+	//bcm2835_gpio_set_pud(B_ENC, BCM2835_GPIO_PUD_UP);
 
 	//Setup High Detect Enable (High Event nnnnn?)
 	bcm2835_gpio_hen(A_ENC);
@@ -185,13 +189,19 @@ int main(int argc, char** argv)
 
 	while (quit == 0)
 	{
-		if (getInput(A_ENC) == 1) ++a_count;
-		if (getInput(B_ENC) == 1) ++b_count;
+		//if (getInput(A_ENC)) ++a_count;
+		//if (getInput(B_ENC)) ++b_count;
 
 		debug("MOTOR A: %d\n", a_count);
 		debug("MOTOR B: %d\n", b_count);
 
-		delay(500);
+		if (bcm2835_gpio_lev(A_ENC))
+			debug("MOTOR A HIGH\n");
+
+		if (bcm2835_gpio_lev(B_ENC))
+			debug("MOTOR B HIGH\n");
+
+		//delay(500);
 
 		if (signaled == 1) quit = 1;
 	}
