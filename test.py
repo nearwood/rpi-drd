@@ -22,7 +22,9 @@ GPIO.setup(11, GPIO.OUT) #Connected to PWMB
 def testcallback(channel):
 	print('Event channel %s' %channel)
 
+GPIO.add_event_detect(3, GPIO.RISING, callback=testcallback)
 GPIO.add_event_detect(5, GPIO.RISING, callback=testcallback)
+
 #Specify the direct to turn the motor
 #Clockwise AIN1/BIN1 = HIGH and AIN2/BIN2 = LOW
 #Counter-Clockwise: AIN1/BIN1 = LOW and AIN2/BIN2 = HIGH
