@@ -14,10 +14,10 @@ What is it?
 Objectives
 ==========
 
-1. ~Basic I/O, SIG handling~
-1. ~Motor PWM output test~ Need software PWM :(
-1. ~Motor Encoder input test~
-1. Motor PWM/encoder PID loop
+1. <del>Basic I/O, SIG handling</del>
+1. <del>Motor PWM output test</del> Need software PWM :(
+1. <del>Motor Encoder input test</del>
+1. Motor PWM/encoder PID loops
 1. Encapsulate the above
 1. Daemon mode
 1. FastCGI interface
