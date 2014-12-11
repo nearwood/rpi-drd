@@ -6,6 +6,7 @@ Raspberry Pi powered robot
 What is it?
 =======
 * The code that runs a Pi powered DAGU Multi-Chassis with two motors, encoders, and a camera
+* Basically just a $250 and man-month long project to antagonize my cats
 * Daemon or ncurses output
 * Setup pins via config file (TODO)
 * Fastcgi web interface for control and status (TODO)
