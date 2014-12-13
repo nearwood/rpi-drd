@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <signal.h>
+#include <time.h>
 
 #include <ncurses/ncurses.h>
 
@@ -193,7 +194,10 @@ int main(int argc, char** argv)
 
 	uint8_t quit = 0;
 
-	float aSpeed = 0.0, bSpeed = 0.0;
+	float aSpeed = 0.0, aSpeedLast = 0, bSpeed = 0.0;
+	float aTarget = 9, bTarget = 2;
+
+	int pwmRange = 1024;
 
 	debug("Initializing BCM2835\n");
 	if (!bcm2835_init()) return 1;
@@ -206,9 +210,15 @@ int main(int argc, char** argv)
 	bcm2835_gpio_fsel(B_ENC, BCM2835_GPIO_FSEL_INPT);
 	//bcm2835_gpio_set_pud(B_ENC, BCM2835_GPIO_PUD_UP);
 
-	bcm2835_gpio_fsel(A_PWM, BCM2835_GPIO_FSEL_OUTP);
+	bcm2835_gpio_fsel(A_PWM, BCM2835_GPIO_FSEL_ALT5); //Enable PWM0
+	bcm2835_pwm_set_clock(BCM2835_PWM_CLOCK_DIVIDER_16);
+	//Set PWM Channel 0, balanced mode, enabled
+	bcm2835_pwm_set_mode(0, 1, 1);
+	//Set range, where pulse freq. is 1.2MHz/range
+	bcm2835_pwm_set_range(0, pwmRange);
 	bcm2835_gpio_fsel(A_IN1, BCM2835_GPIO_FSEL_OUTP);
 	bcm2835_gpio_fsel(A_IN2, BCM2835_GPIO_FSEL_OUTP);
+
 	bcm2835_gpio_fsel(B_PWM, BCM2835_GPIO_FSEL_OUTP);
 	bcm2835_gpio_fsel(B_IN1, BCM2835_GPIO_FSEL_OUTP);
 	bcm2835_gpio_fsel(B_IN2, BCM2835_GPIO_FSEL_OUTP);
@@ -216,35 +226,61 @@ int main(int argc, char** argv)
 	bcm2835_gpio_fsel(STBY, BCM2835_GPIO_FSEL_OUTP);
 	//bcm2835_gpio_clr(STBY); //make sure it's low
 
-
+	//Setup motor polarity (direction)
 	bcm2835_gpio_write(A_IN1, HIGH);
 	bcm2835_gpio_write(A_IN2, LOW);
 	bcm2835_gpio_write(B_IN1, LOW);
 	bcm2835_gpio_write(B_IN2, HIGH);
 
-	bcm2835_gpio_write(A_PWM, HIGH);
-	bcm2835_gpio_write(B_PWM, HIGH);
+	//bcm2835_gpio_write(A_PWM, LOW);
+	bcm2835_gpio_write(B_PWM, LOW);
 
 	debug("Standby off");
 	bcm2835_gpio_set(STBY);
+
+	struct timespec time;
+	long int lTime, dTime;
+	float error = 0, dError = 0, lastError = 0, iError = 0;
+	int aPwm = 0;
+
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time);
 
 	//Setup ncurses
 	initscr();
 	noecho();
 
+	mvprintw(0, 0, "Motor PWM\tcount/deltaT\tactual/target speed (ticks/s)");
+
 	while (quit == 0)
 	{
-		aSpeed = motorSpeedA();
-		bSpeed = motorSpeedB();
+		lTime = time.tv_nsec;
+		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time);
+		dTime = lTime - time.tv_nsec;
 
-		mvprintw(0, 0, "MOTOR A: %03d/%05.3f %05.3f ticks/sec", aCount, timeSpan, aSpeed);
-		mvprintw(1, 0, "MOTOR B: %03d/%05.3f %05.3f ticks/sec", bCount, timeSpan, bSpeed);
+		aSpeedLast = aSpeed;
+		aSpeed = motorSpeedA(); //???
+		bSpeed = motorSpeedB(); //~8-10 ticks/s max
+
+		lastError = error;
+		error = aTarget - aSpeed;
+		dError = error - lastError;
+		iError += error;
+		aPwm = error * 50 + (iError * 0.25) + (dError * 1);
+
+		if (aPwm > pwmRange) aPwm = pwmRange;
+		else if (aPwm < 0) aPwm = 0;
+		bcm2835_pwm_set_data(0, aPwm);
 
 		delay(100);
 		timeSpan += 0.100;
 
+		mvprintw(1, 0, "A:   %03d\t%03d/%05.3f\t%05.3f/%05.3f", aPwm, aCount, timeSpan, aSpeed, aTarget);
+		mvprintw(2, 0, "B:   %03d\t%03d/%05.3f\t%05.3f/%05.3f", aPwm, bCount, timeSpan, bSpeed, aTarget);
+
 		if (timeSpan >= 1)
 		{
+
+
 			timeSpan = 0.01;
 			aCount = 0;
 			bCount = 0;

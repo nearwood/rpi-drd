@@ -1,16 +1,15 @@
-
+#export PATH=$PATH:/home/nick/x-tools/arm-rpi-linux-gnueabi/bin
 PREFIX=arm-rpi-linux-gnueabi-
 INCLUDE=/home/nick/dev/rpi/include
 LIB=/home/nick/dev/rpi/lib
 SRC=$(wildcard src/*.c)
 OBJ=$(patsubst src/%.c,build/%.o,$(SRC))
 TARGET=bin/drd
-LDFLAGS=-L $(LIB) -l bcm2835 -l ncurses
+LDFLAGS=-L $(LIB) -l bcm2835 -l ncurses -l rt
 
 .PHONY: all clean upload
 
 all: $(TARGET)
-
 
 $(TARGET): $(OBJ) | bin
 	$(PREFIX)gcc -o $@ $(OBJ) $(LDFLAGS)
