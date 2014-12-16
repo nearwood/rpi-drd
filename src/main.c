@@ -195,7 +195,7 @@ int main(int argc, char** argv)
 	uint8_t quit = 0;
 
 	float aSpeed = 0.0, aSpeedLast = 0, bSpeed = 0.0;
-	float aTarget = 9, bTarget = 2;
+	float aTarget = 4, bTarget = 2;
 
 	int pwmRange = 1024;
 
@@ -239,11 +239,11 @@ int main(int argc, char** argv)
 	bcm2835_gpio_set(STBY);
 
 	struct timespec time;
-	long int lTime, dTime;
+	unsigned long long lTime, dTime;
 	float error = 0, dError = 0, lastError = 0, iError = 0;
 	int aPwm = 0;
 
-	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time);
+	clock_gettime(CLOCK_MONOTONIC_RAW, &time);
 
 	//Setup ncurses
 	initscr();
@@ -251,42 +251,54 @@ int main(int argc, char** argv)
 
 	mvprintw(0, 0, "Motor PWM\tcount/deltaT\tactual/target speed (ticks/s)");
 
+	/* loop
+	 * -update speed/count
+	 *
+	 * -if waited enough
+	 * --adjust PWM
+	 * --update display
+	 * -else
+	 * --?
+	 *
+	 * 250ms max delay?
+	 *
+	 *
+	 */
+
 	while (quit == 0)
 	{
-		lTime = time.tv_nsec;
-		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &time);
-		dTime = lTime - time.tv_nsec;
+		lTime = time.tv_sec * 1000000000LL + time.tv_nsec;
+		clock_gettime(CLOCK_MONOTONIC_RAW, &time);
+		dTime = lTime - time.tv_sec * 1000000000LL + time.tv_nsec;
 
 		aSpeedLast = aSpeed;
 		aSpeed = motorSpeedA(); //???
 		bSpeed = motorSpeedB(); //~8-10 ticks/s max
 
-		lastError = error;
-		error = aTarget - aSpeed;
-		dError = error - lastError;
-		iError += error;
-		aPwm = error * 50 + (iError * 0.25) + (dError * 1);
-
-		if (aPwm > pwmRange) aPwm = pwmRange;
-		else if (aPwm < 0) aPwm = 0;
-		bcm2835_pwm_set_data(0, aPwm);
-
-		delay(100);
-		timeSpan += 0.100;
-
-		mvprintw(1, 0, "A:   %03d\t%03d/%05.3f\t%05.3f/%05.3f", aPwm, aCount, timeSpan, aSpeed, aTarget);
-		mvprintw(2, 0, "B:   %03d\t%03d/%05.3f\t%05.3f/%05.3f", aPwm, bCount, timeSpan, bSpeed, aTarget);
-
-		if (timeSpan >= 1)
+		if (dTime > 250 * 1000000) //250ms
+		//999998000 100000000
 		{
+			lastError = error;
+			error = aTarget - aSpeed;
+			dError = error - lastError;
+			iError += error;
+			aPwm = error * 50 + (iError * 0.25) + (dError * 1);
 
+			if (aPwm > pwmRange) aPwm = pwmRange;
+			else if (aPwm < 0) aPwm = 0;
+			bcm2835_pwm_set_data(0, aPwm);
 
-			timeSpan = 0.01;
+			mvprintw(1, 0, "A:   %03d\t%03d/%05llu\t%05.3f/%05.3f", aPwm, aCount, dTime, aSpeed, aTarget);
+			mvprintw(2, 0, "B:   %03d\t%03d/%05llu\t%05.3f/%05.3f", aPwm, bCount, dTime, bSpeed, aTarget);
+
 			aCount = 0;
 			bCount = 0;
-		}
 
-		refresh();
+			refresh();
+		}
+		else
+		{
+		}
 
 		if (signaled == 1) quit = 1;
 	}
