@@ -29,6 +29,9 @@
 #include <signal.h>
 #include <time.h>
 
+#include <stdint.h>
+#include <inttypes.h>
+
 #include <ncurses/ncurses.h>
 
 #define DRD_VERSION "0.1a"
@@ -157,7 +160,7 @@ uint8_t encoderTick(uint8_t pin, uint8_t last)
 }
 
 //TODO use ref of ints instead of globals
-float motorSpeedA()
+float motorSpeedA(uint64_t dt)
 {
 	if (encoderTick(A_ENC, aLast))
 	{
@@ -165,11 +168,11 @@ float motorSpeedA()
 		++aCount;
 	}
 
-	return aCount / timeSpan;
+	return aCount / 250;
 }
 
 //float motorSpeed(uint8_t pin, uint8_t* last, uint8_t* count)
-float motorSpeedB()
+float motorSpeedB(uint64_t dt)
 {
 	if (encoderTick(B_ENC, bLast))
 	{
@@ -177,7 +180,7 @@ float motorSpeedB()
 		++bCount;
 	}
 
-	return bCount / timeSpan;
+	return bCount / 250;
 }
 
 int main(int argc, char** argv)
@@ -195,7 +198,7 @@ int main(int argc, char** argv)
 	uint8_t quit = 0;
 
 	float aSpeed = 0.0, aSpeedLast = 0, bSpeed = 0.0;
-	float aTarget = 4, bTarget = 2;
+	float aTarget = 50, bTarget = 2;
 
 	int pwmRange = 1024;
 
@@ -239,18 +242,19 @@ int main(int argc, char** argv)
 	bcm2835_gpio_set(STBY);
 
 	struct timespec time;
-	unsigned long long lTime, dTime;
+	uint64_t lTime, dTime;
 	float error = 0, dError = 0, lastError = 0, iError = 0;
 	int aPwm = 0;
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &time);
+	lTime = time.tv_sec * 1000000000LL + time.tv_nsec;
 
 	//Setup ncurses
 	initscr();
 	noecho();
 
-	mvprintw(0, 0, "Motor PWM\tcount/deltaT\tactual/target speed (ticks/s)");
-
+	mvprintw(0, 0, "Motor PWM\tcount\tactual/target speed (ticks/s)");
+	refresh();
 	/* loop
 	 * -update speed/count
 	 *
@@ -267,29 +271,34 @@ int main(int argc, char** argv)
 
 	while (quit == 0)
 	{
-		lTime = time.tv_sec * 1000000000LL + time.tv_nsec;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &time);
-		dTime = lTime - time.tv_sec * 1000000000LL + time.tv_nsec;
+		dTime = (time.tv_sec * 1000000000LL + time.tv_nsec) - lTime;
+
+		//mvprintw(5, 0, "time: %llu", dTime);
+		//refresh();
+		//if (dTime < 0 || lTime < 0)
+		//	mvprintw(7, 0, "OVERFLOW");
 
 		aSpeedLast = aSpeed;
-		aSpeed = motorSpeedA(); //???
-		bSpeed = motorSpeedB(); //~8-10 ticks/s max
+		aSpeed = motorSpeedA(dTime); //???
+		bSpeed = motorSpeedB(dTime); //~8-10 ticks/s max
 
-		if (dTime > 250 * 1000000) //250ms
-		//999998000 100000000
+		if (dTime > 250000000LL) //250ms
 		{
+			lTime = time.tv_sec * 1000000000LL + time.tv_nsec;
+
 			lastError = error;
 			error = aTarget - aSpeed;
 			dError = error - lastError;
 			iError += error;
-			aPwm = error * 50 + (iError * 0.25) + (dError * 1);
+			aPwm = error * 25 + (iError * .5) + (dError * 0);
 
 			if (aPwm > pwmRange) aPwm = pwmRange;
 			else if (aPwm < 0) aPwm = 0;
-			bcm2835_pwm_set_data(0, aPwm);
+			bcm2835_pwm_set_data(0, 250);//aPwm);
 
-			mvprintw(1, 0, "A:   %03d\t%03d/%05llu\t%05.3f/%05.3f", aPwm, aCount, dTime, aSpeed, aTarget);
-			mvprintw(2, 0, "B:   %03d\t%03d/%05llu\t%05.3f/%05.3f", aPwm, bCount, dTime, bSpeed, aTarget);
+			mvprintw(1, 0, "A:   %03d\t%03d\t%05.3f/%05.3f", aPwm, aCount, aSpeed, aTarget);
+			mvprintw(2, 0, "B:   %03d\t%03d\t%05.3f/%05.3f", aPwm, bCount, bSpeed, bTarget);
 
 			aCount = 0;
 			bCount = 0;
