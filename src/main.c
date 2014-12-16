@@ -56,8 +56,8 @@ sig_atomic_t signaled = 0;
 uint8_t debug_mode = DEBUG_OFF;
 
 //Ick, globals
-uint8_t aLast = 0, bLast = 0, aCount = 0, bCount = 0;
-float timeSpan = 0.01;
+//uint8_t aLast = 0, bLast = 0, aCount = 0, bCount = 0;
+//float timeSpan = 0.01;
 
 int showusage(char* arg0)
 {
@@ -162,25 +162,89 @@ uint8_t encoderTick(uint8_t pin, uint8_t last)
 //TODO use ref of ints instead of globals
 float motorSpeedA(uint64_t dt)
 {
-	if (encoderTick(A_ENC, aLast))
-	{
-		aLast = !aLast;
-		++aCount;
-	}
-
-	return aCount / 0.25;
+	//~ if (encoderTick(A_ENC, aLast))
+	//~ {
+		//~ aLast = !aLast;
+		//~ ++aCount;
+	//~ }
+//~
+	//~ return aCount / 0.25;
+	return 0;
 }
 
 //float motorSpeed(uint8_t pin, uint8_t* last, uint8_t* count)
 float motorSpeedB(uint64_t dt)
 {
-	if (encoderTick(B_ENC, bLast))
-	{
-		bLast = !bLast;
-		++bCount;
-	}
+	//~ if (encoderTick(B_ENC, bLast))
+	//~ {
+		//~ bLast = !bLast;
+		//~ ++bCount;
+	//~ }
+//~
+	//~ return bCount / 0.25;
+	return 0;
+}
 
-	return bCount / 0.25;
+struct Motor
+{
+	uint8_t encoderLast;
+	uint16_t pwm, error, lastError, dError, iError;
+	uint64_t encoderCount;
+	float speed;
+} motorA, motorB;
+
+/** Check for rising/falling edge and update encoder count.
+ *
+ */
+void motorUpdate(struct Motor* motor, const uint8_t encoderPin)
+{
+	if (encoderTick(encoderPin, motor->encoderLast))
+	{
+		motor->encoderLast = !motor->encoderLast;
+		++motor->encoderCount;
+	}
+}
+
+float motorSpeed(struct Motor* motor, const float dt)
+{
+	return motor->speed = motor->encoderCount / dt;
+}
+
+float nanosToSeconds(const uint64_t* nanos)
+{
+	return *nanos / (float)1000000000LL;
+}
+
+void motorPrint(uint8_t x, uint8_t y, const struct Motor* motor)
+{
+	mvprintw(x, y, "X:   %03d\t%03d\t%05.3f", motor->pwm, motor->encoderCount, motor->speed);
+	//mvprintw(2, 0, "Y:   %03d\t%03d\t%05.3f/%05.3f", aPwm, bCount, bSpeed, bTarget);
+}
+
+/** Set a target speed that the motor will immediately attempt to reach.
+ */
+void motorSetSpeed(float speed)
+{
+	//lastError = error;
+	//error = aTarget - aSpeed;
+	//dError = error - lastError;
+	//iError += error;
+	//aPwm = error * 20 + (iError * 0.5) + (dError * 1);
+
+	//if (aPwm > pwmRange) aPwm = pwmRange;
+	//else if (aPwm < 0) aPwm = 0;
+	//bcm2835_pwm_set_data(0, aPwm);
+
+	//aCount = 0;
+	//bCount = 0;
+	return;
+}
+
+/** Set an encoder count the motor will immediately attempt to reach.
+ */
+void motorSetCount(uint32_t count)
+{
+	return;
 }
 
 int main(int argc, char** argv)
@@ -197,8 +261,8 @@ int main(int argc, char** argv)
 
 	uint8_t quit = 0;
 
-	float aSpeed = 0.0, aSpeedLast = 0, bSpeed = 0.0;
-	float aTarget = 30, bTarget = 2;
+	//float aSpeed = 0.0, aSpeedLast = 0, bSpeed = 0.0;
+	//float aTarget = 30, bTarget = 2;
 
 	int pwmRange = 1024;
 
@@ -243,8 +307,8 @@ int main(int argc, char** argv)
 
 	struct timespec time;
 	uint64_t lTime, dTime;
-	float error = 0, dError = 0, lastError = 0, iError = 0;
-	int aPwm = 0;
+	//float error = 0, dError = 0, lastError = 0, iError = 0;
+	//int aPwm = 0;
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &time);
 	lTime = time.tv_sec * 1000000000LL + time.tv_nsec;
@@ -255,48 +319,27 @@ int main(int argc, char** argv)
 
 	mvprintw(0, 0, "Motor PWM\tcount\tactual/target speed (ticks/s)");
 	refresh();
-	/* loop
-	 * -update speed/count
-	 *
-	 * -if waited enough
-	 * --adjust PWM
-	 * --update display
-	 * -else
-	 * --?
-	 *
-	 * 250ms max delay?
-	 *
-	 *
-	 */
 
 	while (quit == 0)
 	{
 		clock_gettime(CLOCK_MONOTONIC_RAW, &time);
 		dTime = (time.tv_sec * 1000000000LL + time.tv_nsec) - lTime;
 
-		aSpeedLast = aSpeed;
-		aSpeed = motorSpeedA(dTime); //???
-		bSpeed = motorSpeedB(dTime); //50t/s
+		motorUpdate(&motorA, A_ENC);
+		motorUpdate(&motorB, B_ENC);
 
 		if (dTime > 250000000LL) //250ms
 		{
 			lTime = time.tv_sec * 1000000000LL + time.tv_nsec;
 
-			lastError = error;
-			error = aTarget - aSpeed;
-			dError = error - lastError;
-			iError += error;
-			aPwm = error * 20 + (iError * 0.5) + (dError * 1);
+			float fDeltaTime = nanosToSeconds(&dTime);
+			motorSpeed(&motorA, fDeltaTime); //TODO Will compiler optimize calls?
+			motorSpeed(&motorB, fDeltaTime);
 
-			if (aPwm > pwmRange) aPwm = pwmRange;
-			else if (aPwm < 0) aPwm = 0;
-			bcm2835_pwm_set_data(0, aPwm);
+			motorPrint(1, 0, &motorA);
+			motorPrint(2, 0, &motorB);
 
-			mvprintw(1, 0, "A:   %03d\t%03d\t%05.3f/%05.3f", aPwm, aCount, aSpeed, aTarget);
-			mvprintw(2, 0, "B:   %03d\t%03d\t%05.3f/%05.3f", aPwm, bCount, bSpeed, bTarget);
-
-			aCount = 0;
-			bCount = 0;
+			bcm2835_pwm_set_data(0, 300);
 
 			refresh();
 		}
