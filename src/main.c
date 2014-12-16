@@ -168,7 +168,7 @@ float motorSpeedA(uint64_t dt)
 		++aCount;
 	}
 
-	return aCount / 250;
+	return aCount / 0.25;
 }
 
 //float motorSpeed(uint8_t pin, uint8_t* last, uint8_t* count)
@@ -180,7 +180,7 @@ float motorSpeedB(uint64_t dt)
 		++bCount;
 	}
 
-	return bCount / 250;
+	return bCount / 0.25;
 }
 
 int main(int argc, char** argv)
@@ -198,7 +198,7 @@ int main(int argc, char** argv)
 	uint8_t quit = 0;
 
 	float aSpeed = 0.0, aSpeedLast = 0, bSpeed = 0.0;
-	float aTarget = 50, bTarget = 2;
+	float aTarget = 30, bTarget = 2;
 
 	int pwmRange = 1024;
 
@@ -274,14 +274,9 @@ int main(int argc, char** argv)
 		clock_gettime(CLOCK_MONOTONIC_RAW, &time);
 		dTime = (time.tv_sec * 1000000000LL + time.tv_nsec) - lTime;
 
-		//mvprintw(5, 0, "time: %llu", dTime);
-		//refresh();
-		//if (dTime < 0 || lTime < 0)
-		//	mvprintw(7, 0, "OVERFLOW");
-
 		aSpeedLast = aSpeed;
 		aSpeed = motorSpeedA(dTime); //???
-		bSpeed = motorSpeedB(dTime); //~8-10 ticks/s max
+		bSpeed = motorSpeedB(dTime); //50t/s
 
 		if (dTime > 250000000LL) //250ms
 		{
@@ -291,11 +286,11 @@ int main(int argc, char** argv)
 			error = aTarget - aSpeed;
 			dError = error - lastError;
 			iError += error;
-			aPwm = error * 25 + (iError * .5) + (dError * 0);
+			aPwm = error * 20 + (iError * 0.5) + (dError * 1);
 
 			if (aPwm > pwmRange) aPwm = pwmRange;
 			else if (aPwm < 0) aPwm = 0;
-			bcm2835_pwm_set_data(0, 250);//aPwm);
+			bcm2835_pwm_set_data(0, aPwm);
 
 			mvprintw(1, 0, "A:   %03d\t%03d\t%05.3f/%05.3f", aPwm, aCount, aSpeed, aTarget);
 			mvprintw(2, 0, "B:   %03d\t%03d\t%05.3f/%05.3f", aPwm, bCount, bSpeed, bTarget);
