@@ -332,6 +332,7 @@ int main(int argc, char** argv)
 		{
 			lTime = time.tv_sec * 1000000000LL + time.tv_nsec;
 
+			//TODO USE PULSEWIDTH YOU IDIOT
 			float fDeltaTime = nanosToSeconds(&dTime);
 			motorSpeed(&motorA, fDeltaTime); //TODO Will compiler optimize calls?
 			motorSpeed(&motorB, fDeltaTime);
