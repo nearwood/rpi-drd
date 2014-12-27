@@ -39,18 +39,18 @@
 #define DEBUG_OFF 0
 #define DEBUG_ON 1
 
-//Pins for Model B, rev. 2
-#define A_ENC	RPI_V2_GPIO_P1_03
-#define A_IN1	RPI_V2_GPIO_P1_16
-#define A_IN2	RPI_V2_GPIO_P1_18
-#define A_PWM	RPI_V2_GPIO_P1_12
+//Pins for RPi Model B+
+#define A_ENC	RPI_BPLUS_GPIO_J8_03
+#define A_IN1	RPI_BPLUS_GPIO_J8_16
+#define A_IN2	RPI_BPLUS_GPIO_J8_18
+#define A_PWM	RPI_BPLUS_GPIO_J8_12
 
-#define B_ENC	RPI_V2_GPIO_P1_05
-#define B_IN1	RPI_V2_GPIO_P1_13
-#define B_IN2	RPI_V2_GPIO_P1_15
-#define B_PWM	RPI_V2_GPIO_P1_11
+#define B_ENC	RPI_BPLUS_GPIO_J8_05
+#define B_IN1	RPI_BPLUS_GPIO_J8_13
+#define B_IN2	RPI_BPLUS_GPIO_J8_15
+#define B_PWM	RPI_BPLUS_GPIO_J8_35
 
-#define STBY	RPI_V2_GPIO_P1_07
+#define STBY	RPI_BPLUS_GPIO_J8_07
 
 sig_atomic_t signaled = 0;
 uint8_t debug_mode = DEBUG_OFF;
@@ -272,21 +272,26 @@ int main(int argc, char** argv)
 	debug("Setting up encoders on pins: %d, %d\n", A_ENC, B_ENC);
 	//Setup encoders for input (SDA and SCL pins already have a pullup!)
 	bcm2835_gpio_fsel(A_ENC, BCM2835_GPIO_FSEL_INPT);
-	//bcm2835_gpio_set_pud(A_ENC, BCM2835_GPIO_PUD_UP);
-
 	bcm2835_gpio_fsel(B_ENC, BCM2835_GPIO_FSEL_INPT);
+
+	//bcm2835_gpio_set_pud(A_ENC, BCM2835_GPIO_PUD_UP);
 	//bcm2835_gpio_set_pud(B_ENC, BCM2835_GPIO_PUD_UP);
 
 	bcm2835_gpio_fsel(A_PWM, BCM2835_GPIO_FSEL_ALT5); //Enable PWM0
+	bcm2835_gpio_fsel(B_PWM, BCM2835_GPIO_FSEL_ALT5); //Enable PWM1
 	bcm2835_pwm_set_clock(BCM2835_PWM_CLOCK_DIVIDER_16);
-	//Set PWM Channel 0, balanced mode, enabled
+
+	//Set PWM Channel X, balanced mode, enabled
 	bcm2835_pwm_set_mode(0, 1, 1);
+	bcm2835_pwm_set_mode(1, 1, 1);
+
 	//Set range, where pulse freq. is 1.2MHz/range
 	bcm2835_pwm_set_range(0, pwmRange);
+	bcm2835_pwm_set_range(1, pwmRange);
+
 	bcm2835_gpio_fsel(A_IN1, BCM2835_GPIO_FSEL_OUTP);
 	bcm2835_gpio_fsel(A_IN2, BCM2835_GPIO_FSEL_OUTP);
 
-	bcm2835_gpio_fsel(B_PWM, BCM2835_GPIO_FSEL_OUTP);
 	bcm2835_gpio_fsel(B_IN1, BCM2835_GPIO_FSEL_OUTP);
 	bcm2835_gpio_fsel(B_IN2, BCM2835_GPIO_FSEL_OUTP);
 
@@ -300,7 +305,7 @@ int main(int argc, char** argv)
 	bcm2835_gpio_write(B_IN2, HIGH);
 
 	//bcm2835_gpio_write(A_PWM, LOW);
-	bcm2835_gpio_write(B_PWM, LOW);
+	//bcm2835_gpio_write(B_PWM, LOW);
 
 	debug("Standby off");
 	bcm2835_gpio_set(STBY);
@@ -341,6 +346,7 @@ int main(int argc, char** argv)
 			motorPrint(2, 0, &motorB);
 
 			bcm2835_pwm_set_data(0, 300);
+			bcm2835_pwm_set_data(1, 300);
 
 			refresh();
 		}
