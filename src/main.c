@@ -156,32 +156,14 @@ void sigHandler(int sig)
 //poll encoder, returning 1 if the state has switched, 0 otherwise
 uint8_t encoderTick(uint8_t pin, uint8_t last)
 {
-	return (bcm2835_gpio_lev(pin) != last);
-}
+	//return (bcm2835_gpio_lev(pin) != last);
+	if (bcm2835_gpio_eds(pin))
+	{
+		bcm2835_gpio_set_eds(pin);
+		//debug("encoder event.\n");
+		return 1;
+	}
 
-//TODO use ref of ints instead of globals
-float motorSpeedA(uint64_t dt)
-{
-	//~ if (encoderTick(A_ENC, aLast))
-	//~ {
-		//~ aLast = !aLast;
-		//~ ++aCount;
-	//~ }
-//~
-	//~ return aCount / 0.25;
-	return 0;
-}
-
-//float motorSpeed(uint8_t pin, uint8_t* last, uint8_t* count)
-float motorSpeedB(uint64_t dt)
-{
-	//~ if (encoderTick(B_ENC, bLast))
-	//~ {
-		//~ bLast = !bLast;
-		//~ ++bCount;
-	//~ }
-//~
-	//~ return bCount / 0.25;
 	return 0;
 }
 
@@ -274,8 +256,14 @@ int main(int argc, char** argv)
 	bcm2835_gpio_fsel(A_ENC, BCM2835_GPIO_FSEL_INPT);
 	bcm2835_gpio_fsel(B_ENC, BCM2835_GPIO_FSEL_INPT);
 
+	//Set pull up
 	//bcm2835_gpio_set_pud(A_ENC, BCM2835_GPIO_PUD_UP);
 	//bcm2835_gpio_set_pud(B_ENC, BCM2835_GPIO_PUD_UP);
+
+	//set event detect mode
+	bcm2835_gpio_aren(A_ENC);
+	bcm2835_gpio_afen(B_ENC);
+	//bcm2835_gpio_aren(B_ENC);
 
 	bcm2835_gpio_fsel(A_PWM, BCM2835_GPIO_FSEL_ALT5); //Enable PWM0
 	bcm2835_gpio_fsel(B_PWM, BCM2835_GPIO_FSEL_ALT5); //Enable PWM1
@@ -289,9 +277,9 @@ int main(int argc, char** argv)
 	bcm2835_pwm_set_range(0, pwmRange);
 	bcm2835_pwm_set_range(1, pwmRange);
 
+	//Set motor polarity pins as ouput
 	bcm2835_gpio_fsel(A_IN1, BCM2835_GPIO_FSEL_OUTP);
 	bcm2835_gpio_fsel(A_IN2, BCM2835_GPIO_FSEL_OUTP);
-
 	bcm2835_gpio_fsel(B_IN1, BCM2835_GPIO_FSEL_OUTP);
 	bcm2835_gpio_fsel(B_IN2, BCM2835_GPIO_FSEL_OUTP);
 
@@ -304,10 +292,10 @@ int main(int argc, char** argv)
 	bcm2835_gpio_write(B_IN1, LOW);
 	bcm2835_gpio_write(B_IN2, HIGH);
 
-	//bcm2835_gpio_write(A_PWM, LOW);
+	bcm2835_gpio_write(A_PWM, HIGH);
 	//bcm2835_gpio_write(B_PWM, LOW);
 
-	debug("Standby off");
+	debug("Standby off.\n");
 	bcm2835_gpio_set(STBY);
 
 	struct timespec time;
@@ -345,8 +333,10 @@ int main(int argc, char** argv)
 			motorPrint(1, 0, &motorA);
 			motorPrint(2, 0, &motorB);
 
-			bcm2835_pwm_set_data(0, 300);
-			bcm2835_pwm_set_data(1, 300);
+			bcm2835_pwm_set_data(0, pwmRange -= 25);
+			bcm2835_pwm_set_data(1, pwmRange);
+
+			if (pwmRange <= 0) pwmRange = 500;
 
 			refresh();
 		}
@@ -357,12 +347,14 @@ int main(int argc, char** argv)
 		if (signaled == 1) quit = 1;
 	}
 
+	debug("Standby motors.\n");
 	bcm2835_gpio_clr(STBY);
 
-	endwin();
-
-	debug("Closing BCM2835\n");
+	debug("Closing BCM2835.\n");
 	if (!bcm2835_close()) return 2;
+
+	debug("Cleanup ncurses.\n");
+	endwin();
 
 	return 0;
 }

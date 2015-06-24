@@ -3,9 +3,11 @@ PREFIX=arm-rpi-linux-gnueabi-
 INCLUDE=/home/nick/dev/rpi/include
 LIB=/home/nick/dev/rpi/lib
 SRC=$(wildcard src/*.c)
+WEB=$(wildcard web/*)
 OBJ=$(patsubst src/%.c,build/%.o,$(SRC))
 TARGET=bin/drd
 LDFLAGS=-L $(LIB) -l bcm2835 -l ncurses -l rt
+DRD=192.168.0.116
 
 #ifeq (, $(shell which $(PREFIX)gcc))
 # $(error "No $(PREFIX)gcc in $(PATH).")
@@ -31,8 +33,12 @@ build:
 build/%.o: src/%.c
 	$(PREFIX)gcc $(CFLAGS) -I $(INCLUDE) -c $< -o $@
 
+#upload any changed files under web/
+web: $(WEB)
+	scp $< root@$(DRD):/srv/http/
+
 upload: $(TARGET)
-	scp $(TARGET) root@192.168.0.104:~/drd
+	scp $(TARGET) root@$(DRD):~/drd
 
 clean:
 	rm -rvf $(TARGET) build
