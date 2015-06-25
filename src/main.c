@@ -223,33 +223,7 @@ float nanosToSeconds(const uint64_t* nanos)
 
 void motorPrint(uint8_t x, uint8_t y, const struct Motor* motor)
 {
-	mvprintw(x, y, "M:   %03d\t%03d\t%016.5f", (motor->error * 0.80 + motor->iError * 0.20 + motor->dError * 10), motor->actual, motor->error);
-}
-
-/** Set a target speed that the motor will immediately attempt to reach.
- */
-void motorSetSpeed(float speed)
-{
-	//lastError = error;
-	//error = aTarget - aSpeed;
-	//dError = error - lastError;
-	//iError += error;
-	//aPwm = error * 20 + (iError * 0.5) + (dError * 1);
-
-	//if (aPwm > PWM_RANGE) aPwm = PWM_RANGE;
-	//else if (aPwm < 0) aPwm = 0;
-	//bcm2835_pwm_set_data(0, aPwm);
-
-	//aCount = 0;
-	//bCount = 0;
-	return;
-}
-
-/** Set an encoder count the motor will immediately attempt to reach.
- */
-void motorSetCount(uint32_t count)
-{
-	return;
+	mvprintw(x, y, "M:   %03d\t%03d\t%016.5f", motor->pwm, motor->actual, motor->error);
 }
 
 int main(int argc, char** argv)
