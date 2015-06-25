@@ -1,7 +1,7 @@
 /*
  * main.c
  *
- * Copyright 2014 Nick Earwood <http://www.nearwood.net/>
+ * Copyright 2015 Nick Earwood <http://www.nearwood.net/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -52,8 +52,14 @@
 
 #define STBY	RPI_BPLUS_GPIO_J8_07
 
+#define PWM_RANGE 1024
+
 sig_atomic_t signaled = 0;
 uint8_t debug_mode = DEBUG_OFF;
+
+//double m = 0.00000006826666667;
+double m = 0.00001706666667;
+//double m = 0.000064d;
 
 //Ick, globals
 //uint8_t aLast = 0, bLast = 0, aCount = 0, bCount = 0;
@@ -88,7 +94,7 @@ int comparse(int argc, char** argv)
 		{
 			case 'v': //version
 				printf("%s %s\n", argv[0], DRD_VERSION);
-				printf("Copyright (C) 2014 Nick Earwood <http://www.nearwood.net/>\n");
+				printf("Copyright (C) 2015 Nick Earwood <http://www.nearwood.net/>\n");
 				printf("This is free software; see the source for copying conditions.  There is NO\n");
 				printf("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
 				exit(EXIT_SUCCESS);
@@ -154,9 +160,8 @@ void sigHandler(int sig)
 }
 
 //poll encoder, returning 1 if the state has switched, 0 otherwise
-uint8_t encoderTick(uint8_t pin, uint8_t last)
+uint8_t encoderTick(uint8_t pin)
 {
-	//return (bcm2835_gpio_lev(pin) != last);
 	if (bcm2835_gpio_eds(pin))
 	{
 		bcm2835_gpio_set_eds(pin);
@@ -169,22 +174,41 @@ uint8_t encoderTick(uint8_t pin, uint8_t last)
 
 struct Motor
 {
-	uint8_t encoderLast;
-	uint16_t pwm, error, lastError, dError, iError;
-	uint64_t encoderCount;
+	//uint8_t encoderLast;
+	uint8_t pwmChannel, encoderPin; //const
+	int32_t pwm;
+	uint32_t encoderCount;
+	uint64_t target, actual; //time between ticks
+	double error, lastError, dError, iError;
 	float speed;
 } motorA, motorB;
 
 /** Check for rising/falling edge and update encoder count.
  *
  */
-void motorUpdate(struct Motor* motor, const uint8_t encoderPin)
+void motorUpdate(struct Motor* motor, uint64_t* cTime, uint64_t* lTime)
 {
-	if (encoderTick(encoderPin, motor->encoderLast))
+	if (encoderTick(motor->encoderPin))
 	{
-		motor->encoderLast = !motor->encoderLast;
 		++motor->encoderCount;
+		motor->actual = *cTime - *lTime;
+		*lTime = *cTime;
 	}
+
+	motor->lastError = motor->error;
+	motor->error = (motor->target - motor->actual) * m;
+	motor->dError = motor->error - motor->lastError;
+	motor->iError += motor->error;
+	motor->pwm = (motor->error * 0.80 + motor->iError * 0.20 + motor->dError * 10);
+
+	//clamp
+	if (motor->pwm > PWM_RANGE) motor->pwm = PWM_RANGE;
+	else if (motor->pwm < 0) motor->pwm = 0;
+
+	//float fDeltaTime = nanosToSeconds(&refreshTime);
+	//debug("t: %d\n", motor->actual);
+
+	bcm2835_pwm_set_data(motor->pwmChannel, motor->pwm);
 }
 
 float motorSpeed(struct Motor* motor, const float dt)
@@ -199,8 +223,7 @@ float nanosToSeconds(const uint64_t* nanos)
 
 void motorPrint(uint8_t x, uint8_t y, const struct Motor* motor)
 {
-	mvprintw(x, y, "X:   %03d\t%03d\t%05.3f", motor->pwm, motor->encoderCount, motor->speed);
-	//mvprintw(2, 0, "Y:   %03d\t%03d\t%05.3f/%05.3f", aPwm, bCount, bSpeed, bTarget);
+	mvprintw(x, y, "M:   %03d\t%03d\t%016.5f", (motor->error * 0.80 + motor->iError * 0.20 + motor->dError * 10), motor->actual, motor->error);
 }
 
 /** Set a target speed that the motor will immediately attempt to reach.
@@ -213,7 +236,7 @@ void motorSetSpeed(float speed)
 	//iError += error;
 	//aPwm = error * 20 + (iError * 0.5) + (dError * 1);
 
-	//if (aPwm > pwmRange) aPwm = pwmRange;
+	//if (aPwm > PWM_RANGE) aPwm = PWM_RANGE;
 	//else if (aPwm < 0) aPwm = 0;
 	//bcm2835_pwm_set_data(0, aPwm);
 
@@ -246,8 +269,6 @@ int main(int argc, char** argv)
 	//float aSpeed = 0.0, aSpeedLast = 0, bSpeed = 0.0;
 	//float aTarget = 30, bTarget = 2;
 
-	int pwmRange = 1024;
-
 	debug("Initializing BCM2835\n");
 	if (!bcm2835_init()) return 1;
 
@@ -260,10 +281,11 @@ int main(int argc, char** argv)
 	//bcm2835_gpio_set_pud(A_ENC, BCM2835_GPIO_PUD_UP);
 	//bcm2835_gpio_set_pud(B_ENC, BCM2835_GPIO_PUD_UP);
 
-	//set event detect mode
+	//set event detect mode, rising edge, and falling edge.
 	bcm2835_gpio_aren(A_ENC);
-	bcm2835_gpio_afen(B_ENC);
-	//bcm2835_gpio_aren(B_ENC);
+	bcm2835_gpio_aren(B_ENC);
+	bcm2835_gpio_afen(A_ENC);
+	bcm2835_gpio_aren(B_ENC);
 
 	bcm2835_gpio_fsel(A_PWM, BCM2835_GPIO_FSEL_ALT5); //Enable PWM0
 	bcm2835_gpio_fsel(B_PWM, BCM2835_GPIO_FSEL_ALT5); //Enable PWM1
@@ -274,8 +296,8 @@ int main(int argc, char** argv)
 	bcm2835_pwm_set_mode(1, 1, 1);
 
 	//Set range, where pulse freq. is 1.2MHz/range
-	bcm2835_pwm_set_range(0, pwmRange);
-	bcm2835_pwm_set_range(1, pwmRange);
+	bcm2835_pwm_set_range(0, PWM_RANGE);
+	bcm2835_pwm_set_range(1, PWM_RANGE);
 
 	//Set motor polarity pins as ouput
 	bcm2835_gpio_fsel(A_IN1, BCM2835_GPIO_FSEL_OUTP);
@@ -284,7 +306,7 @@ int main(int argc, char** argv)
 	bcm2835_gpio_fsel(B_IN2, BCM2835_GPIO_FSEL_OUTP);
 
 	bcm2835_gpio_fsel(STBY, BCM2835_GPIO_FSEL_OUTP);
-	//bcm2835_gpio_clr(STBY); //make sure it's low
+	bcm2835_gpio_clr(STBY); //make sure it's low
 
 	//Setup motor polarity (direction)
 	bcm2835_gpio_write(A_IN1, HIGH);
@@ -292,14 +314,27 @@ int main(int argc, char** argv)
 	bcm2835_gpio_write(B_IN1, LOW);
 	bcm2835_gpio_write(B_IN2, HIGH);
 
-	bcm2835_gpio_write(A_PWM, HIGH);
+	bcm2835_pwm_set_data(motorA.pwmChannel, 0);
+	bcm2835_pwm_set_data(motorB.pwmChannel, 0);
+	//bcm2835_gpio_write(A_PWM, LOW);
 	//bcm2835_gpio_write(B_PWM, LOW);
+
+	//Setup motor struct "consts"
+	motorA.pwmChannel = 0;
+	motorB.pwmChannel = 1;
+	motorA.encoderPin = A_ENC;
+	motorB.encoderPin = B_ENC;
+
+	//Setup test target speeds (ns)
+	//~16,000,000 fastest, 60,000,000 slow, 15,000,000,000 slowest, 20 billion motor stall
+	motorA.target = 60000000;
+	motorB.target = 20000000000;
 
 	debug("Standby off.\n");
 	bcm2835_gpio_set(STBY);
 
 	struct timespec time;
-	uint64_t lTime, dTime;
+	uint64_t cTime, lTime, refreshTime, lTimeA, lTimeB;
 	//float error = 0, dError = 0, lastError = 0, iError = 0;
 	//int aPwm = 0;
 
@@ -310,33 +345,36 @@ int main(int argc, char** argv)
 	initscr();
 	noecho();
 
-	mvprintw(0, 0, "Motor PWM\tcount\tactual/target speed (ticks/s)");
+	mvprintw(0, 0, "Motor PWM\tactual\terror");
 	refresh();
 
 	while (quit == 0)
 	{
 		clock_gettime(CLOCK_MONOTONIC_RAW, &time);
-		dTime = (time.tv_sec * 1000000000LL + time.tv_nsec) - lTime;
 
-		motorUpdate(&motorA, A_ENC);
-		motorUpdate(&motorB, B_ENC);
+		cTime = (time.tv_sec * 1000000000LL + time.tv_nsec);
+		refreshTime = cTime - lTime;
 
-		if (dTime > 250000000LL) //250ms
-		{
-			lTime = time.tv_sec * 1000000000LL + time.tv_nsec;
+		motorUpdate(&motorA, &cTime, &lTimeA);
+		motorUpdate(&motorB, &cTime, &lTimeB);
+
+		if (refreshTime > 250000000LL) //250ms
+		{//Refresh the ncurses output
+			lTime = cTime;
 
 			//TODO USE PULSEWIDTH YOU IDIOT
-			float fDeltaTime = nanosToSeconds(&dTime);
+			float fDeltaTime = nanosToSeconds(&refreshTime);
 			motorSpeed(&motorA, fDeltaTime); //TODO Will compiler optimize calls?
 			motorSpeed(&motorB, fDeltaTime);
 
 			motorPrint(1, 0, &motorA);
 			motorPrint(2, 0, &motorB);
 
-			bcm2835_pwm_set_data(0, pwmRange -= 25);
-			bcm2835_pwm_set_data(1, pwmRange);
+			//if (motorA.pwm == 1024) m /= 2;
+			//mvprintw(10, 2, "modifier: %f", m);
 
-			if (pwmRange <= 0) pwmRange = 500;
+			//bcm2835_pwm_set_data(motorA.pwmChannel, 0);
+			//bcm2835_pwm_set_data(motorB.pwmChannel, 0);// 360);
 
 			refresh();
 		}
