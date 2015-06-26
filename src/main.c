@@ -57,14 +57,6 @@
 sig_atomic_t signaled = 0;
 uint8_t debug_mode = DEBUG_OFF;
 
-//double m = 0.00000006826666667;
-double m = 0.00001706666667;
-//double m = 0.000064d;
-
-//Ick, globals
-//uint8_t aLast = 0, bLast = 0, aCount = 0, bCount = 0;
-//float timeSpan = 0.01;
-
 int showusage(char* arg0)
 {
 	printf("Usage: %s -[b|c|d[d]|h|v]\n", arg0);
@@ -165,7 +157,6 @@ uint8_t encoderTick(uint8_t pin)
 	if (bcm2835_gpio_eds(pin))
 	{
 		bcm2835_gpio_set_eds(pin);
-		//debug("encoder event.\n");
 		return 1;
 	}
 
@@ -174,56 +165,54 @@ uint8_t encoderTick(uint8_t pin)
 
 struct Motor
 {
-	//uint8_t encoderLast;
 	uint8_t pwmChannel, encoderPin; //const
 	int32_t pwm;
 	uint32_t encoderCount;
-	uint64_t target, actual; //time between ticks
+	float target, actual; //time between ticks
 	double error, lastError, dError, iError;
 	float speed;
 } motorA, motorB;
 
-/** Check for rising/falling edge and update encoder count.
- *
+/**
+ * Check for rising/falling edge and update encoder count.
  */
 void motorUpdate(struct Motor* motor, uint64_t* cTime, uint64_t* lTime)
 {
-	if (encoderTick(motor->encoderPin))
+	if (encoderTick(motor->encoderPin)) ++motor->encoderCount;
+
+	uint64_t dt = (uint64_t)(*cTime) - (uint64_t)(*lTime);
+
+	if (dt > 1000000000LL)
 	{
-		++motor->encoderCount;
-		motor->actual = *cTime - *lTime;
-		*lTime = *cTime;
+		//debug("ctime: %llu\n", *cTime);
+		//debug("ltime: %llu\n", *lTime);
+		//debug("diff: %llu\n", dt);
+
+		//actual speed = tick count / (dt in ???seconds)
+		motor->actual = (float)motor->encoderCount / (dt / 100000000LL);
+		motor->encoderCount = 0; //TODO need rolling average
+		*lTime = *cTime; //reset motor last tick time
+
+		//calculate raw PWM
+		motor->lastError = motor->error;
+		motor->error = (motor->target - motor->actual);
+		motor->dError = motor->error - motor->lastError;
+		motor->iError += motor->error;
+		motor->pwm = (motor->error * 50 + motor->iError * 100 + motor->dError * 10);
+		//motor->pwm = (motor->error * 60 + motor->iError * 120 + motor->dError * 10); //a bit jerky, but doesn't overshoot
+
+		//clamp PWM
+		if (motor->pwm > PWM_RANGE) motor->pwm = PWM_RANGE;
+		else if (motor->pwm < 0) motor->pwm = 0;
+
+		//set PWM
+		bcm2835_pwm_set_data(motor->pwmChannel, motor->pwm);
 	}
-
-	motor->lastError = motor->error;
-	motor->error = (motor->target - motor->actual) * m;
-	motor->dError = motor->error - motor->lastError;
-	motor->iError += motor->error;
-	motor->pwm = (motor->error * 0.80 + motor->iError * 0.20 + motor->dError * 10);
-
-	//clamp
-	if (motor->pwm > PWM_RANGE) motor->pwm = PWM_RANGE;
-	else if (motor->pwm < 0) motor->pwm = 0;
-
-	//float fDeltaTime = nanosToSeconds(&refreshTime);
-	//debug("t: %d\n", motor->actual);
-
-	bcm2835_pwm_set_data(motor->pwmChannel, motor->pwm);
-}
-
-float motorSpeed(struct Motor* motor, const float dt)
-{
-	return motor->speed = motor->encoderCount / dt;
-}
-
-float nanosToSeconds(const uint64_t* nanos)
-{
-	return *nanos / (float)1000000000LL;
 }
 
 void motorPrint(uint8_t x, uint8_t y, const struct Motor* motor)
 {
-	mvprintw(x, y, "M:   %03d\t%03d\t%016.5f", motor->pwm, motor->actual, motor->error);
+	mvprintw(x, y, "%04d\t%05.3f\t%05.3f\t%04d", motor->pwm, motor->actual, motor->error, motor->encoderCount);
 }
 
 int main(int argc, char** argv)
@@ -240,8 +229,14 @@ int main(int argc, char** argv)
 
 	uint8_t quit = 0;
 
-	//float aSpeed = 0.0, aSpeedLast = 0, bSpeed = 0.0;
-	//float aTarget = 30, bTarget = 2;
+	if (debug_mode != DEBUG_ON)
+	{
+		initscr();
+		noecho();
+
+		mvprintw(0, 0, " PWM | SPEED       | ERROR         | TICKS");
+		refresh();
+	}
 
 	debug("Initializing BCM2835\n");
 	if (!bcm2835_init()) return 1;
@@ -259,7 +254,7 @@ int main(int argc, char** argv)
 	bcm2835_gpio_aren(A_ENC);
 	bcm2835_gpio_aren(B_ENC);
 	bcm2835_gpio_afen(A_ENC);
-	bcm2835_gpio_aren(B_ENC);
+	bcm2835_gpio_afen(B_ENC);
 
 	bcm2835_gpio_fsel(A_PWM, BCM2835_GPIO_FSEL_ALT5); //Enable PWM0
 	bcm2835_gpio_fsel(B_PWM, BCM2835_GPIO_FSEL_ALT5); //Enable PWM1
@@ -288,75 +283,62 @@ int main(int argc, char** argv)
 	bcm2835_gpio_write(B_IN1, LOW);
 	bcm2835_gpio_write(B_IN2, HIGH);
 
-	bcm2835_pwm_set_data(motorA.pwmChannel, 0);
-	bcm2835_pwm_set_data(motorB.pwmChannel, 0);
-	//bcm2835_gpio_write(A_PWM, LOW);
-	//bcm2835_gpio_write(B_PWM, LOW);
-
 	//Setup motor struct "consts"
 	motorA.pwmChannel = 0;
 	motorB.pwmChannel = 1;
 	motorA.encoderPin = A_ENC;
 	motorB.encoderPin = B_ENC;
 
+	bcm2835_pwm_set_data(motorA.pwmChannel, 0);
+	bcm2835_pwm_set_data(motorB.pwmChannel, 0);
+
 	//Setup test target speeds (ns)
 	//~16,000,000 fastest, 60,000,000 slow, 15,000,000,000 slowest, 20 billion motor stall
-	motorA.target = 60000000;
-	motorB.target = 20000000000;
+	motorA.target = 1.75;
+	motorB.target = 1.75;
 
 	debug("Standby off.\n");
 	bcm2835_gpio_set(STBY);
 
 	struct timespec time;
-	uint64_t cTime, lTime, refreshTime, lTimeA, lTimeB;
-	//float error = 0, dError = 0, lastError = 0, iError = 0;
-	//int aPwm = 0;
+	uint64_t cTime = 0, lTime = 0, refreshTime = 0, lTimeA = 0, lTimeB = 0;
+	int timeCount = 0;
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &time);
 	lTime = time.tv_sec * 1000000000LL + time.tv_nsec;
 
-	//Setup ncurses
-	initscr();
-	noecho();
-
-	mvprintw(0, 0, "Motor PWM\tactual\terror");
-	refresh();
-
 	while (quit == 0)
 	{
 		clock_gettime(CLOCK_MONOTONIC_RAW, &time);
-
-		cTime = (time.tv_sec * 1000000000LL + time.tv_nsec);
+		cTime = time.tv_sec * 1000000000LL + time.tv_nsec;
 		refreshTime = cTime - lTime;
 
-		motorUpdate(&motorA, &cTime, &lTimeA);
-		motorUpdate(&motorB, &cTime, &lTimeB);
+		//usleep(25000);
+		//if (refreshTime > 25000000LL) //25ms
+		{
+			motorUpdate(&motorA, &cTime, &lTimeA);
+			motorUpdate(&motorB, &cTime, &lTimeB);
+			//lTime = cTime;
+			//timeCount++;
+		}
 
 		if (refreshTime > 250000000LL) //250ms
+		//if (timeCount >= 4)
 		{//Refresh the ncurses output
-			lTime = cTime;
+			//timeCount = 0;
 
-			//TODO USE PULSEWIDTH YOU IDIOT
-			float fDeltaTime = nanosToSeconds(&refreshTime);
-			motorSpeed(&motorA, fDeltaTime); //TODO Will compiler optimize calls?
-			motorSpeed(&motorB, fDeltaTime);
+			if (debug_mode != DEBUG_ON)
+			{
+				motorPrint(1, 0, &motorA);
+				motorPrint(2, 0, &motorB);
+				refresh();
+			}
 
-			motorPrint(1, 0, &motorA);
-			motorPrint(2, 0, &motorB);
+			//bcm2835_pwm_set_data(motorA.pwmChannel, 500);
+			//bcm2835_pwm_set_data(motorB.pwmChannel, 0);
 
-			//if (motorA.pwm == 1024) m /= 2;
-			//mvprintw(10, 2, "modifier: %f", m);
-
-			//bcm2835_pwm_set_data(motorA.pwmChannel, 0);
-			//bcm2835_pwm_set_data(motorB.pwmChannel, 0);// 360);
-
-			refresh();
+			if (signaled == 1) quit = 1;
 		}
-		else
-		{
-		}
-
-		if (signaled == 1) quit = 1;
 	}
 
 	debug("Standby motors.\n");
@@ -365,8 +347,11 @@ int main(int argc, char** argv)
 	debug("Closing BCM2835.\n");
 	if (!bcm2835_close()) return 2;
 
-	debug("Cleanup ncurses.\n");
-	endwin();
+	if (debug_mode != DEBUG_ON)
+	{
+		debug("Cleanup ncurses.\n");
+		endwin();
+	}
 
 	return 0;
 }
