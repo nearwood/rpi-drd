@@ -1,5 +1,5 @@
 /*
- * main.c
+ * controller.c
  *
  * Copyright 2015 Nick Earwood <http://www.nearwood.net/>
  *

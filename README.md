@@ -36,6 +36,7 @@ Raspberry Pi powered robot. Eventually semi-autonomous.
 * bcm2835
 * ncurses
 * rt
+* fastcgi
 
 ## Building
 For ease of development, it is cross-compiled.
@@ -43,5 +44,5 @@ For ease of development, it is cross-compiled.
 bcm2835:
 `./configure --build=arm-linux --host=arm-rpi-linux-gnueabi --prefix=/home/nick/dev/rpi`
 
-rpi-drd:
+Since I don't know enough about make to have it autodetect/find the right gcc, run this before running make:
 `export PATH=$PATH:/home/nick/x-tools/arm-rpi-linux-gnueabi/bin`

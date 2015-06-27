@@ -11,10 +11,11 @@
 <button>Left</button><button>Right</button>
 <button>Reverse</button>
 </form>
-<h3>Cam</h3>
-<video autoplay="true" controls width="640" height="480">
+<h3>Camera</h3>
+<img/>
+<!-- video autoplay="true" controls width="320" height="240">
 	<source src="http://192.168.0.116:8554/stream" />
 	Could not use HTML5 video.
-</video>
+</video -->
 </body>
 </html>

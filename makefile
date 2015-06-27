@@ -1,44 +1,32 @@
+#main makefile
+
 #export PATH=$PATH:/home/nick/x-tools/arm-rpi-linux-gnueabi/bin
 PREFIX=arm-rpi-linux-gnueabi-
 INCLUDE=/home/nick/dev/rpi/include
 LIB=/home/nick/dev/rpi/lib
-SRC=$(wildcard src/*.c)
 WEB=$(wildcard web/*)
-OBJ=$(patsubst src/%.c,build/%.o,$(SRC))
-TARGET=bin/drd
+TARGET=bin/uh
 LDFLAGS=-L $(LIB) -l bcm2835 -l ncurses -l rt
 DRD=192.168.0.116
+
+SUBDIRS = controller server
 
 #ifeq (, $(shell which $(PREFIX)gcc))
 # $(error "No $(PREFIX)gcc in $(PATH).")
 #endif
 
-.PHONY: all clean upload web
+.PHONY: subdirs $(SUBDIRS) all web clean
 
-all: $(TARGET)
+subdirs: $(SUBDIRS)
 
-$(TARGET): $(OBJ) | bin
-	$(PREFIX)gcc -o $@ $(OBJ) $(LDFLAGS)
-	$(PREFIX)strip $(TARGET)
-	@$(PREFIX)size -A $(TARGET) | grep "Total"
+$(SUBDIRS):
+	$(MAKE) -C $@
 
-$(OBJ): | build
-
-bin:
-	mkdir -p bin
-
-build:
-	mkdir -p build
-
-build/%.o: src/%.c
-	$(PREFIX)gcc $(CFLAGS) -I $(INCLUDE) -c $< -o $@
+all: subdirs
 
 #upload any changed files under web/
 web: $(WEB)
 	scp $< root@$(DRD):/srv/http/
 
-upload: $(TARGET)
-	scp $(TARGET) root@$(DRD):~/drd
-
 clean:
-	rm -rvf $(TARGET) build
+	rm -rvf build
