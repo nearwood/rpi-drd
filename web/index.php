@@ -13,7 +13,7 @@
 </form>
 <h3>Cam</h3>
 <video autoplay="true" controls width="640" height="480">
-	<source src="http://192.168.0.104:8554/stream.mp4" />
+	<source src="http://192.168.0.116:8554/stream" />
 	Could not use HTML5 video.
 </video>
 </body>

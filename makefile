@@ -13,7 +13,7 @@ DRD=192.168.0.116
 # $(error "No $(PREFIX)gcc in $(PATH).")
 #endif
 
-.PHONY: all clean upload
+.PHONY: all clean upload web
 
 all: $(TARGET)
 

@@ -87,8 +87,8 @@ int comparse(int argc, char** argv)
 			case 'v': //version
 				printf("%s %s\n", argv[0], DRD_VERSION);
 				printf("Copyright (C) 2015 Nick Earwood <http://www.nearwood.net/>\n");
-				printf("This is free software; see the source for copying conditions.  There is NO\n");
-				printf("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
+				printf("This is free software; see the source for copying conditions.\n");
+				printf("There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
 				exit(EXIT_SUCCESS);
 				break;
 
@@ -234,7 +234,7 @@ int main(int argc, char** argv)
 		initscr();
 		noecho();
 
-		mvprintw(0, 0, " PWM | SPEED       | ERROR         | TICKS");
+		mvprintw(0, 0, " PWM\tSPEED\tERROR\tTICKS");
 		refresh();
 	}
 
@@ -294,8 +294,8 @@ int main(int argc, char** argv)
 
 	//Setup test target speeds (ns)
 	//~16,000,000 fastest, 60,000,000 slow, 15,000,000,000 slowest, 20 billion motor stall
-	motorA.target = 1.75;
-	motorB.target = 1.75;
+	motorA.target = 1.3;
+	motorB.target = 1.3;
 
 	debug("Standby off.\n");
 	bcm2835_gpio_set(STBY);
