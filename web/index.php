@@ -1,13 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8">
+ <link rel="stylesheet" href="jquery-ui/jquery-ui.min.css">
+<script src="jquery-2.1.4.min.js"></script>
+<script src="jquery-ui/jquery-ui.min.js"></script>
+<script src="index.js"></script>
 <title>DRD v0.1a</title>
 </head>
 <body>
 <h3>Status</h3>
+<div id="status"></div>
 <h3>Control</h3>
 <form>
-<button>Forward</button>
+<button id="test">Forward</button>
 <button>Left</button><button>Right</button>
 <button>Reverse</button>
 </form>

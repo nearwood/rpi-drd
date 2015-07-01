@@ -1,12 +1,7 @@
 #main makefile
 
 #export PATH=$PATH:/home/nick/x-tools/arm-rpi-linux-gnueabi/bin
-PREFIX=arm-rpi-linux-gnueabi-
-INCLUDE=/home/nick/dev/rpi/include
-LIB=/home/nick/dev/rpi/lib
 WEB=$(wildcard web/*)
-TARGET=bin/uh
-LDFLAGS=-L $(LIB) -l bcm2835 -l ncurses -l rt
 DRD=192.168.0.116
 
 SUBDIRS = controller server
@@ -15,7 +10,7 @@ SUBDIRS = controller server
 # $(error "No $(PREFIX)gcc in $(PATH).")
 #endif
 
-.PHONY: subdirs $(SUBDIRS) all web clean
+.PHONY: subdirs $(SUBDIRS) all web $(WEB) clean
 
 subdirs: $(SUBDIRS)
 
@@ -26,7 +21,9 @@ all: subdirs
 
 #upload any changed files under web/
 web: $(WEB)
-	scp $< root@$(DRD):/srv/http/
+
+$(WEB):
+	scp -r $@ root@$(DRD):/srv/http/
 
 clean:
 	rm -rvf build

@@ -32,11 +32,15 @@ Raspberry Pi powered robot. Eventually semi-autonomous.
 * Pi Camera
 * Distance Sensors
 
-## Software Dependancies
+## Software
+### Build Dependancies
 * bcm2835
 * ncurses
 * rt
+
+#### Run Dependancies
 * fastcgi
+* spawn-fcgi
 
 ## Building
 For ease of development, it is cross-compiled.
@@ -46,3 +50,6 @@ bcm2835:
 
 Since I don't know enough about make to have it autodetect/find the right gcc, run this before running make:
 `export PATH=$PATH:/home/nick/x-tools/arm-rpi-linux-gnueabi/bin`
+
+## Running the server process
+`spawn-fcgi -s /var/run/lighttpd/drd-server.sock -u nick -U http /root/server`
