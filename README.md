@@ -46,10 +46,10 @@ Raspberry Pi powered robot. Eventually semi-autonomous.
 For ease of development, it is cross-compiled.
 
 bcm2835:
-`./configure --build=arm-linux --host=arm-rpi-linux-gnueabi --prefix=/home/nick/dev/rpi`
+ `./configure --build=arm-linux --host=arm-rpi-linux-gnueabi --prefix=/home/nick/dev/rpi`
 
 Since I don't know enough about make to have it autodetect/find the right gcc, run this before running make:
 `export PATH=$PATH:/home/nick/x-tools/arm-rpi-linux-gnueabi/bin`
 
 ## Running the server process
-`spawn-fcgi -s /var/run/lighttpd/drd-server.sock -u nick -U http /root/server`
+ `spawn-fcgi -s /var/run/lighttpd/drd-server.sock -u nick -U http /root/server`
