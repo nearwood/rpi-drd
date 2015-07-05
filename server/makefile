@@ -6,7 +6,7 @@ LIB=/home/nick/dev/rpi/lib
 SRC=$(wildcard src/*.c)
 OBJ=$(patsubst src/%.c,build/%.o,$(SRC))
 TARGET=server
-LDFLAGS=-L $(LIB) -l bcm2835 -l ncurses -l rt -l fcgi
+LDFLAGS=-L $(LIB) -l fcgi
 DRD=192.168.0.116
 
 #ifeq (, $(shell which $(PREFIX)gcc))
