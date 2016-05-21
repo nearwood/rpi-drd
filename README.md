@@ -5,11 +5,16 @@ Raspberry Pi powered robot. Eventually semi-autonomous.
 
 ## What is it?
 * The code that runs a Pi powered DAGU Multi-Chassis with two motors, encoders, and a camera
-* Basically just a $250 man-month long project to antagonize my cats
+* Basically just a $250, multiple man-month long project to antagonize my cats
 * Daemon or ncurses output
 * Setup pins via config file (TODO)
 * Fastcgi web interface for control and status (TODO)
 * Camera output to the web interface (TODO)
+
+### Modules
+1. Server - The intermediary interface between the Web module and Controller. This is the main entry point.
+1. Controller - The motor controller interface. Steering, driving, camera controller.
+1. Web - The static website with AJAX controls.
 
 ## Objectives
 1. <del>Basic I/O, SIG handling</del>

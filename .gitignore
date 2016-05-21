@@ -1,6 +1,8 @@
 drd.geany
 bin
 build
+server/server
+controller/controller
 
 # Object files
 *.o

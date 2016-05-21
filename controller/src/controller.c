@@ -1,7 +1,7 @@
 /*
  * controller.c
  *
- * Copyright 2015 Nick Earwood <http://www.nearwood.net/>
+ * Copyright 2014-2016 Nick Earwood <http://www.nearwood.net/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,8 +18,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
  * MA 02110-1301, USA.
  */
-
-//07.12.2014
 
 #include <bcm2835.h>
 
@@ -86,7 +84,7 @@ int comparse(int argc, char** argv)
 		{
 			case 'v': //version
 				printf("%s %s\n", argv[0], DRD_VERSION);
-				printf("Copyright (C) 2015 Nick Earwood <http://www.nearwood.net/>\n");
+				printf("Copyright (C) 2014-2016 Nick Earwood <http://www.nearwood.net/>\n");
 				printf("This is free software; see the source for copying conditions.\n");
 				printf("There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
 				exit(EXIT_SUCCESS);
@@ -198,7 +196,8 @@ void motorUpdate(struct Motor* motor, uint64_t* cTime, uint64_t* lTime)
 		motor->error = (motor->target - motor->actual);
 		motor->dError = motor->error - motor->lastError;
 		motor->iError += motor->error;
-		motor->pwm = (motor->error * 50 + motor->iError * 100 + motor->dError * 10);
+		motor->pwm = (motor->error * 75 + motor->iError * 120 + motor->dError * 5);
+		//motor->pwm = (motor->error * 50 + motor->iError * 100 + motor->dError * 10); //pretty smooth, takes a while
 		//motor->pwm = (motor->error * 60 + motor->iError * 120 + motor->dError * 10); //a bit jerky, but doesn't overshoot
 
 		//clamp PWM
