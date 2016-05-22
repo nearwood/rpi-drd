@@ -2,10 +2,10 @@
 <html>
 	<head>
 		<meta charset="utf-8">
-		<link rel="stylesheet" href="jquery-ui/jquery-ui.min.css">
 		<link rel="stylesheet" href="index.css">
-		<script src="jquery-2.1.4.min.js"></script>
-		<script src="jquery-ui/jquery-ui.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.3/jquery.min.js"></script>
+		<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
 		<script src="index.js"></script>
 		<title>DRD v0.1a</title>
 	</head>
