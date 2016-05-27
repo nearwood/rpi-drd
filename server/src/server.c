@@ -117,7 +117,7 @@ int main()
 	//Response loop
 	while (FCGI_Accept() >= 0)
 	{
-		printf("Content-type: text/xml\r\n\r\n<?xml version=\"1.0\"?><drd xmlns=\"http://example.com/drd/schema xmlns:xsi=\"http://www.w3.org/2001/XMLSchema\"><response>ACK</response><status>OK</status></drd>");
+		printf("Content-type: text/json\r\n\r\n{\"response\": \"ACK\", \"status\": \"OK\"}");
 
 		//PrintEnv("Request environment", environ);
 

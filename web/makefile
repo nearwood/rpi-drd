@@ -1,7 +1,7 @@
 #web makefile
 
 #export PATH=$PATH:/home/nick/x-tools/arm-rpi-linux-gnueabi/bin
-DRD=192.168.0.116
+DRD=192.168.0.108
 
 .PHONY: upload all clean
 

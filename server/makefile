@@ -7,7 +7,7 @@ SRC=$(wildcard src/*.c)
 OBJ=$(patsubst src/%.c,build/%.o,$(SRC))
 TARGET=server
 LDFLAGS=-L $(LIB) -l fcgi
-DRD=192.168.0.116
+DRD=192.168.0.108
 
 #ifeq (, $(shell which $(PREFIX)gcc))
 # $(error "No $(PREFIX)gcc in $(PATH).")
@@ -34,7 +34,7 @@ build/%.o: src/%.c
 	$(PREFIX)gcc $(CFLAGS) -I $(INCLUDE) -c $< -o $@
 
 upload: $(TARGET)
-	scp $(TARGET) root@$(DRD):~/$(TARGET)
+	scp $(TARGET) alarm@$(DRD):~/$(TARGET)
 
 clean:
 	rm -rvf $(TARGET) build

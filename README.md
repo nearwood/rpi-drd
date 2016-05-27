@@ -43,7 +43,11 @@ Raspberry Pi powered robot. Eventually semi-autonomous.
 * ncurses
 * rt
 
+### Deploy Dependancies
+* rsync
+
 #### Run Dependancies
+* lighttpd / apache
 * fastcgi
 * spawn-fcgi
 
@@ -53,8 +57,15 @@ For ease of development, it is cross-compiled.
 bcm2835:
  `./configure --build=arm-linux --host=arm-rpi-linux-gnueabi --prefix=/home/nick/dev/rpi`
 
-Since I don't know enough about make to have it autodetect/find the right gcc, run this before running make:
+Since I don't know enough about make to have it autodetect/find the right toolchain, run this before running make:
 `export PATH=$PATH:/home/nick/x-tools/arm-rpi-linux-gnueabi/bin`
 
+## Installation/Deployment
+
+1. Install packages on the Pi:
+  * pacman -S lighttpd fcgi spawn-fcgi rsync ncurses
+1. configure lighttpd and fcgi on the Pi
+1. make upload
+
 ## Running the server process
- `spawn-fcgi -s /var/run/lighttpd/drd-server.sock -u nick -U http /root/server`
+ `spawn-fcgi -s /var/run/lighttpd/drd-server.socket -u alarm -U http -- /home/alarm/server`

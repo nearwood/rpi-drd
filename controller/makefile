@@ -34,7 +34,7 @@ build/%.o: src/%.c
 	$(PREFIX)gcc $(CFLAGS) -I $(INCLUDE) -c $< -o $@
 
 upload: $(TARGET)
-	scp $(TARGET) root@$(DRD):~/$(TARGET)
+	scp $(TARGET) alarm@$(DRD):~/$(TARGET)
 
 clean:
 	rm -rvf $(TARGET) build

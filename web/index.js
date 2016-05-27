@@ -5,7 +5,7 @@ $(function() {
 
 	$("#stop").click(function() {
 		$.ajax("cgi-bin/test").done(function(data, status) {
-			$("#status").text(status + ":" + data);
+			$("#status").text(status + ":" + data.response);
 		}).fail(function(data, status) {
 			$("#status").text(status + ":" + data);
 		});
