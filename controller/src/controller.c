@@ -51,6 +51,9 @@
 #define STBY	RPI_BPLUS_GPIO_J8_07
 
 #define PWM_RANGE 1024
+#define MOTOR_TICK_DELAY	1000000000LL //1000ms
+						  //100000000LL //100ms
+#define REFRESH_SPEED		250000000LL  //250ms
 
 sig_atomic_t signaled = 0;
 uint8_t debug_mode = DEBUG_OFF;
@@ -180,7 +183,7 @@ void motorUpdate(struct Motor* motor, uint64_t* cTime, uint64_t* lTime)
 
 	uint64_t dt = (uint64_t)(*cTime) - (uint64_t)(*lTime);
 
-	if (dt > 1000000000LL)
+	if (dt > MOTOR_TICK_DELAY)
 	{
 		//debug("ctime: %llu\n", *cTime);
 		//debug("ltime: %llu\n", *lTime);
@@ -291,10 +294,9 @@ int main(int argc, char** argv)
 	bcm2835_pwm_set_data(motorA.pwmChannel, 0);
 	bcm2835_pwm_set_data(motorB.pwmChannel, 0);
 
-	//Setup test target speeds (ns)
-	//~16,000,000 fastest, 60,000,000 slow, 15,000,000,000 slowest, 20 billion motor stall
-	motorA.target = 1.3;
-	motorB.target = 1.3;
+	//Setup test target speeds (RPM)
+	motorA.target = 1.5;
+	motorB.target = 1.5;
 
 	debug("Standby off.\n");
 	bcm2835_gpio_set(STBY);
@@ -304,27 +306,19 @@ int main(int argc, char** argv)
 	int timeCount = 0;
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &time);
-	lTime = time.tv_sec * 1000000000LL + time.tv_nsec;
+	lTime = time.tv_sec * MOTOR_TICK_DELAY + time.tv_nsec;
 
 	while (quit == 0)
 	{
 		clock_gettime(CLOCK_MONOTONIC_RAW, &time);
-		cTime = time.tv_sec * 1000000000LL + time.tv_nsec;
+		cTime = time.tv_sec * MOTOR_TICK_DELAY + time.tv_nsec;
 		refreshTime = cTime - lTime;
 
-		//usleep(25000);
-		//if (refreshTime > 25000000LL) //25ms
-		{
-			motorUpdate(&motorA, &cTime, &lTimeA);
-			motorUpdate(&motorB, &cTime, &lTimeB);
-			//lTime = cTime;
-			//timeCount++;
-		}
+		motorUpdate(&motorA, &cTime, &lTimeA);
+		motorUpdate(&motorB, &cTime, &lTimeB);
 
-		if (refreshTime > 250000000LL) //250ms
-		//if (timeCount >= 4)
+		if (refreshTime > REFRESH_SPEED)
 		{//Refresh the ncurses output
-			//timeCount = 0;
 
 			if (debug_mode != DEBUG_ON)
 			{
