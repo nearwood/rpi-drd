@@ -246,7 +246,7 @@ int main(int argc, char** argv)
 	debug("Setting up encoders on pins: %d, %d\n", A_ENC, B_ENC);
 	//Setup encoders for input (SDA and SCL pins already have a pullup!)
 	bcm2835_gpio_fsel(A_ENC, BCM2835_GPIO_FSEL_INPT);
-	bcm2835_gpio_fsel(B_ENC, BCM2835_GPIO_FSEL_INPT);
+  bcm2835_gpio_fsel(B_ENC, BCM2835_GPIO_FSEL_INPT);
 
 	//Set pull up
 	//bcm2835_gpio_set_pud(A_ENC, BCM2835_GPIO_PUD_UP);
@@ -280,8 +280,8 @@ int main(int argc, char** argv)
 	bcm2835_gpio_clr(STBY); //make sure it's low
 
 	//Setup motor polarity (direction)
-	bcm2835_gpio_write(A_IN1, HIGH);
-	bcm2835_gpio_write(A_IN2, LOW);
+	bcm2835_gpio_write(A_IN1, LOW);
+	bcm2835_gpio_write(A_IN2, HIGH);
 	bcm2835_gpio_write(B_IN1, LOW);
 	bcm2835_gpio_write(B_IN2, HIGH);
 
@@ -327,8 +327,9 @@ int main(int argc, char** argv)
 				refresh();
 			}
 
-			//bcm2835_pwm_set_data(motorA.pwmChannel, 500);
-			//bcm2835_pwm_set_data(motorB.pwmChannel, 0);
+			//bcm2835_pwm_set_data(motorA.pwmChannel, 800);
+			//bcm2835_pwm_set_data(motorB.pwmChannel, 1024);
+      delay(100);
 
 			if (signaled == 1) quit = 1;
 		}

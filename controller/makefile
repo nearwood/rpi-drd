@@ -1,5 +1,7 @@
 #controller makefile
-PREFIX=arm-rpi-linux-gnueabi-
+
+export PATH := $(PATH):/home/nick/dev/x-tools6h/arm-unknown-linux-gnueabihf/bin
+PREFIX=arm-unknown-linux-gnueabihf-
 INCLUDE=/home/nick/dev/rpi/include
 LIB=/home/nick/dev/rpi/lib
 SRC=$(wildcard src/*.c)
