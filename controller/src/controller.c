@@ -1,7 +1,7 @@
 /*
  * controller.c
  *
- * Copyright 2014-2016 Nick Earwood <http://www.nearwood.net/>
+ * Copyright 2014-2019 Nick Earwood <http://www.nearwood.net/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +38,8 @@
 #define DEBUG_ON 1
 
 //Pins for RPi Model B+
+
+//Motor controller
 #define A_ENC	RPI_BPLUS_GPIO_J8_03 //BCM2 (SDA)
 #define A_IN1	RPI_BPLUS_GPIO_J8_18 //BCM24
 #define A_IN2	RPI_BPLUS_GPIO_J8_16 //BCM23
@@ -51,9 +53,12 @@
 #define STBY	RPI_BPLUS_GPIO_J8_07 //BCM4
 
 #define PWM_RANGE 1024
-#define MOTOR_TICK_DELAY	1000000000LL //1000ms
-						  //100000000LL //100ms
-#define REFRESH_SPEED		250000000LL  //250ms
+#define MOTOR_TICK_DELAY  1000000000LL //1000ms //100000000LL //100ms
+#define REFRESH_SPEED      250000000LL  //250ms
+
+// Sonar/Range sensors
+#define SONAR1  RPI_BPLUS_GPIO_J8_29 //BCM5
+#define SONAR2  RPI_BPLUS_GPIO_J8_31 //BCM6
 
 sig_atomic_t signaled = 0;
 uint8_t debug_mode = DEBUG_OFF;
@@ -164,6 +169,41 @@ uint8_t encoderTick(uint8_t pin)
 	return 0;
 }
 
+
+//If rising, mark time
+//If falling, subtract time to get pulse width in microseconds
+//sonarUpdate(SONAR1, &cTime, &sonarTimeA);
+void sonarUpdate(uint8_t pin, uint64_t* cTime, uint64_t* sTime, uint32_t* distance)
+{
+  //TODO Consider enabling afen only after a trigger with aren.
+  static uint8_t pin1High = 0, pin2High = 0;
+  if (pin == SONAR1) {//HACK
+    if (pin1High) {
+      uint64_t dt = (uint64_t)(*cTime) - (uint64_t)(*sTime);
+      //get distance via formula: 147uS per inch
+      *distance = dt / 147;
+      pin1High = 0;
+    } else {
+      //mark time
+      *sTime = *cTime;
+      pin1High = 1;
+    }
+  } else if (pin == SONAR2) {
+    if (pin2High) {
+      uint64_t dt = (uint64_t)(*cTime) - (uint64_t)(*sTime);
+      //get distance via formula: 147uS per inch
+      *distance = dt / 147;
+      pin2High = 0;
+    } else {
+      //mark time
+      *sTime = *cTime;
+      pin2High = 1;
+    }
+  }
+}
+
+
+
 struct Motor
 {
 	uint8_t pwmChannel, encoderPin; //const
@@ -236,7 +276,7 @@ int main(int argc, char** argv)
 		initscr();
 		noecho();
 
-		mvprintw(0, 0, " PWM\tSPEED\tERROR\tTICKS");
+		mvprintw(0, 0, " PWM\tSPEED\tERROR\tTICKS\tSONAR");
 		refresh();
 	}
 
@@ -298,32 +338,48 @@ int main(int argc, char** argv)
 	motorA.target = 3.0; //max 4.9-5.1
 	motorB.target = 3.0; //max 4.5-4.6
 
+  //Setup sonar sensors to receive pulse input
+	bcm2835_gpio_fsel(SONAR1, BCM2835_GPIO_FSEL_INPT);
+	bcm2835_gpio_aren(SONAR1);
+	bcm2835_gpio_afen(SONAR1);
+
+	bcm2835_gpio_fsel(SONAR2, BCM2835_GPIO_FSEL_INPT);
+	bcm2835_gpio_aren(SONAR2);
+	bcm2835_gpio_afen(SONAR2);
+
 	debug("Standby off.\n");
 	bcm2835_gpio_set(STBY);
 
 	struct timespec time;
-	uint64_t cTime = 0, lTime = 0, refreshTime = 0, lTimeA = 0, lTimeB = 0;
-	int timeCount = 0;
+	uint64_t cTime = 0, lTime = 0,
+           lTimeA = 0, lTimeB = 0, sonarTimeA = 0, sonarTimeB = 0;
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &time);
 	lTime = time.tv_sec * MOTOR_TICK_DELAY + time.tv_nsec;
+
+  uint32_t sonarDistanceA = 0, sonarDistanceB = 0;
 
 	while (quit == 0)
 	{
 		clock_gettime(CLOCK_MONOTONIC_RAW, &time);
 		cTime = time.tv_sec * MOTOR_TICK_DELAY + time.tv_nsec;
-		refreshTime = cTime - lTime;
 
 		motorUpdate(&motorA, &cTime, &lTimeA);
 		motorUpdate(&motorB, &cTime, &lTimeB);
 
-		if (refreshTime > REFRESH_SPEED)
+    sonarUpdate(SONAR1, &cTime, &sonarTimeA, &sonarDistanceA);
+    sonarUpdate(SONAR2, &cTime, &sonarTimeB, &sonarDistanceB);
+
+		if (cTime - lTime > REFRESH_SPEED)
 		{//Refresh the ncurses output
+      lTime = cTime;
 
 			if (debug_mode != DEBUG_ON)
 			{
 				motorPrint(1, 0, &motorA);
 				motorPrint(2, 0, &motorB);
+	      mvprintw(1, 32, "%04d", sonarDistanceA);
+	      mvprintw(2, 32, "%04d", sonarDistanceB);
 				refresh();
 			}
 
