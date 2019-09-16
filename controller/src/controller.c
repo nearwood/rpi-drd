@@ -295,8 +295,8 @@ int main(int argc, char** argv)
 	bcm2835_pwm_set_data(motorB.pwmChannel, 0);
 
 	//Setup test target speeds (RPM)
-	motorA.target = 1.5;
-	motorB.target = 1.5;
+	motorA.target = 3.0; //max 4.9-5.1
+	motorB.target = 3.0; //max 4.5-4.6
 
 	debug("Standby off.\n");
 	bcm2835_gpio_set(STBY);
@@ -329,7 +329,7 @@ int main(int argc, char** argv)
 
 			//bcm2835_pwm_set_data(motorA.pwmChannel, 800);
 			//bcm2835_pwm_set_data(motorB.pwmChannel, 1024);
-      delay(100);
+      //delay(100);
 
 			if (signaled == 1) quit = 1;
 		}

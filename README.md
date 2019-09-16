@@ -17,10 +17,10 @@ Raspberry Pi powered robot. Eventually semi-autonomous.
 1. Web - The static website with AJAX controls.
 
 ## Objectives
-1. <del>Basic I/O, SIG handling</del>
-1. <del>Motor PWM output test</del>
-1. <del>Motor Encoder input test</del>
-1. Motor PWM/encoder PID loops
+ - [x] <del>Basic I/O, SIG handling</del>
+ - [x] <del>Motor PWM output test</del>
+ - [x] <del>Motor Encoder input test</del>
+ - [x] Motor PWM/encoder PID loops
 1. Encapsulate the above
 1. Daemon mode
 1. FastCGI interface
@@ -44,7 +44,7 @@ Raspberry Pi powered robot. Eventually semi-autonomous.
 * rt
 
 ### Deploy Dependancies
-* rsync
+* rsync/scp
 
 #### Run Dependancies
 * lighttpd / apache

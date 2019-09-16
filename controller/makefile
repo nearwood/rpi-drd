@@ -8,7 +8,7 @@ SRC=$(wildcard src/*.c)
 OBJ=$(patsubst src/%.c,build/%.o,$(SRC))
 TARGET=controller
 LDFLAGS=-L $(LIB) -l bcm2835 -l ncursesw -l rt
-DRD=192.168.2.134
+DRD=drd#192.168.2.134
 
 #ifeq (, $(shell which $(PREFIX)gcc))
 # $(error "No $(PREFIX)gcc in $(PATH).")
