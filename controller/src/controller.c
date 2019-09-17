@@ -27,6 +27,7 @@
 #include <signal.h>
 #include <time.h>
 
+#include <unistd.h>
 #include <stdint.h>
 #include <inttypes.h>
 
