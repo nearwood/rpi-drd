@@ -267,7 +267,7 @@ void motorUpdate(struct Motor* motor, uint64_t* cTime, uint64_t* lTime)
 
 void motorPrint(uint8_t x, uint8_t y, const struct Motor* motor)
 {
-	mvprintw(x, y, "%04d\t%05.3f\t%05.3f\t%04d", motor->pwm, motor->actual, motor->error, motor->encoderCount);
+	mvprintw(x, y, " %03.0f%\t%05.3f\t%05.3f\t%04d", (float)motor->pwm/10.24, motor->actual, motor->error, motor->encoderCount);
 }
 
 int main(int argc, char** argv)
