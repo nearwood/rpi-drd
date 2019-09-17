@@ -59,6 +59,8 @@
 // Sonar/Range sensors
 #define SONAR1  RPI_BPLUS_GPIO_J8_29 //BCM5
 #define SONAR2  RPI_BPLUS_GPIO_J8_31 //BCM6
+#define SONAR_TRIGGER RPI_BPLUS_GPIO_J8_36 //BCM16
+#define SONAR_TRIGGER_TIME 10000000LL //10mS (28uS < t < 48mS)
 
 sig_atomic_t signaled = 0;
 uint8_t debug_mode = DEBUG_OFF;
@@ -173,26 +175,30 @@ uint8_t encoderTick(uint8_t pin)
 //If rising, mark time
 //If falling, subtract time to get pulse width in microseconds
 //sonarUpdate(SONAR1, &cTime, &sonarTimeA);
-void sonarUpdate(uint8_t pin, uint64_t* cTime, uint64_t* sTime, uint32_t* distance)
+void sonarUpdate(uint8_t pin, uint64_t* cTime, uint64_t* sTime, float* distance)
 {
   //TODO Consider enabling afen only after a trigger with aren.
   static uint8_t pin1High = 0, pin2High = 0;
+  uint8_t event = encoderTick(pin);
+
   if (pin == SONAR1) {//HACK
     if (pin1High) {
       uint64_t dt = (uint64_t)(*cTime) - (uint64_t)(*sTime);
       //get distance via formula: 147uS per inch
-      *distance = dt / 147;
+      *distance = (float)dt / 147000.0f;
       pin1High = 0;
+      debug("%llu: SONAR1 FALLING\n", cTime);
     } else {
       //mark time
       *sTime = *cTime;
       pin1High = 1;
+      debug("%llu: SONAR1 RISING\n", cTime);
     }
   } else if (pin == SONAR2) {
     if (pin2High) {
       uint64_t dt = (uint64_t)(*cTime) - (uint64_t)(*sTime);
       //get distance via formula: 147uS per inch
-      *distance = dt / 147;
+      *distance = (float)dt; //ms
       pin2High = 0;
     } else {
       //mark time
@@ -303,6 +309,7 @@ int main(int argc, char** argv)
 	bcm2835_pwm_set_clock(BCM2835_PWM_CLOCK_DIVIDER_16);
 
 	//Set PWM Channel X, balanced mode, enabled
+  debug("Setting PWM channels\n");
 	bcm2835_pwm_set_mode(0, 1, 1);
 	bcm2835_pwm_set_mode(1, 1, 1);
 
@@ -311,6 +318,7 @@ int main(int argc, char** argv)
 	bcm2835_pwm_set_range(1, PWM_RANGE);
 
 	//Set motor polarity pins as ouput
+  debug("Setting motor output pins\n");
 	bcm2835_gpio_fsel(A_IN1, BCM2835_GPIO_FSEL_OUTP);
 	bcm2835_gpio_fsel(A_IN2, BCM2835_GPIO_FSEL_OUTP);
 	bcm2835_gpio_fsel(B_IN1, BCM2835_GPIO_FSEL_OUTP);
@@ -331,6 +339,7 @@ int main(int argc, char** argv)
 	motorA.encoderPin = A_ENC;
 	motorB.encoderPin = B_ENC;
 
+  debug("Initializing motor PWM to 0\n");
 	bcm2835_pwm_set_data(motorA.pwmChannel, 0);
 	bcm2835_pwm_set_data(motorB.pwmChannel, 0);
 
@@ -338,7 +347,14 @@ int main(int argc, char** argv)
 	motorA.target = 3.0; //max 4.9-5.1
 	motorB.target = 3.0; //max 4.5-4.6
 
-  //Setup sonar sensors to receive pulse input
+  ///Setup sonar sensors to receive pulse input
+
+  //Set Sonar RX pin low to prevent ranging.
+  debug("Initializing sonar pins\n");
+  bcm2835_gpio_fsel(SONAR_TRIGGER, BCM2835_GPIO_FSEL_OUTP);
+  bcm2835_gpio_clr(SONAR_TRIGGER);
+
+  //Setup edge detection for sonar PW inputs
 	bcm2835_gpio_fsel(SONAR1, BCM2835_GPIO_FSEL_INPT);
 	bcm2835_gpio_aren(SONAR1);
 	bcm2835_gpio_afen(SONAR1);
@@ -351,22 +367,31 @@ int main(int argc, char** argv)
 	bcm2835_gpio_set(STBY);
 
 	struct timespec time;
-	uint64_t cTime = 0, lTime = 0,
+	uint64_t cTime = 0, lTime = 0, sTime = 0,
            lTimeA = 0, lTimeB = 0, sonarTimeA = 0, sonarTimeB = 0;
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &time);
 	lTime = time.tv_sec * MOTOR_TICK_DELAY + time.tv_nsec;
 
-  uint32_t sonarDistanceA = 0, sonarDistanceB = 0;
+  float sonarDistanceA = 0, sonarDistanceB = 0;
 
 	while (quit == 0)
 	{
 		clock_gettime(CLOCK_MONOTONIC_RAW, &time);
 		cTime = time.tv_sec * MOTOR_TICK_DELAY + time.tv_nsec;
+    //debug("%llu: step\n", cTime);
 
 		motorUpdate(&motorA, &cTime, &lTimeA);
 		motorUpdate(&motorB, &cTime, &lTimeB);
 
+    //Hold the RX pin for at least SONAR_TRIGGER_TIME to trigger a range operation
+    if (bcm2835_gpio_lev(SONAR_TRIGGER) == HIGH && cTime - sTime > SONAR_TRIGGER_TIME) {
+      debug("%llu: Clearing RX pin\n", cTime);
+      bcm2835_gpio_clr(SONAR_TRIGGER);
+      sTime = cTime;
+    }
+
+    //Check rising/falling edges for reading responses (ugh)
     sonarUpdate(SONAR1, &cTime, &sonarTimeA, &sonarDistanceA);
     sonarUpdate(SONAR2, &cTime, &sonarTimeB, &sonarDistanceB);
 
@@ -374,12 +399,17 @@ int main(int argc, char** argv)
 		{//Refresh the ncurses output
       lTime = cTime;
 
+      //Temp place to set sonar range command every REFRESH_SPEED
+      debug("%llu: Setting RX pin\n", cTime);
+      bcm2835_gpio_set(SONAR_TRIGGER);
+      sTime = cTime;
+
 			if (debug_mode != DEBUG_ON)
 			{
 				motorPrint(1, 0, &motorA);
 				motorPrint(2, 0, &motorB);
-	      mvprintw(1, 32, "%04d", sonarDistanceA);
-	      mvprintw(2, 32, "%04d", sonarDistanceB);
+	      mvprintw(1, 32, "%04f", sonarDistanceA);
+	      mvprintw(2, 32, "%04f", sonarDistanceB);
 				refresh();
 			}
 
@@ -393,6 +423,9 @@ int main(int argc, char** argv)
 
 	debug("Standby motors.\n");
 	bcm2835_gpio_clr(STBY);
+
+  debug("Standby sonar.\n");
+  bcm2835_gpio_clr(SONAR_TRIGGER);
 
 	debug("Closing BCM2835.\n");
 	if (!bcm2835_close()) return 2;
