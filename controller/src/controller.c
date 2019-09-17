@@ -54,7 +54,8 @@
 
 #define PWM_RANGE 1024
 #define MOTOR_TICK_DELAY  1000000000LL //1000ms //100000000LL //100ms
-#define REFRESH_SPEED      250000000LL  //250ms
+//#define REFRESH_SPEED      250000000LL  //250ms
+#define REFRESH_SPEED      1000000000LL  //1000ms
 
 // Sonar/Range sensors
 #define SONAR1  RPI_BPLUS_GPIO_J8_29 //BCM5
@@ -181,14 +182,19 @@ void sonarUpdate(uint8_t pin, uint64_t* cTime, uint64_t* sTime, float* distance)
   static uint8_t pin1High = 0, pin2High = 0;
   uint8_t event = encoderTick(pin);
 
+  if (!event) return;
+
   if (pin == SONAR1) {//HACK
-    if (pin1High) {
+    if (pin1High) {//Falling edge
+      bcm2835_gpio_clr_afen(pin);
       uint64_t dt = (uint64_t)(*cTime) - (uint64_t)(*sTime);
       //get distance via formula: 147uS per inch
       *distance = (float)dt / 147000.0f;
       pin1High = 0;
       debug("%llu: SONAR1 FALLING\n", cTime);
-    } else {
+    } else {//Rising edge
+      bcm2835_gpio_clr_aren(pin);
+      bcm2835_gpio_afen(pin);
       //mark time
       *sTime = *cTime;
       pin1High = 1;
@@ -197,8 +203,7 @@ void sonarUpdate(uint8_t pin, uint64_t* cTime, uint64_t* sTime, float* distance)
   } else if (pin == SONAR2) {
     if (pin2High) {
       uint64_t dt = (uint64_t)(*cTime) - (uint64_t)(*sTime);
-      //get distance via formula: 147uS per inch
-      *distance = (float)dt; //ms
+      *distance = (float)dt / 147000.0f;
       pin2High = 0;
     } else {
       //mark time
@@ -207,7 +212,6 @@ void sonarUpdate(uint8_t pin, uint64_t* cTime, uint64_t* sTime, float* distance)
     }
   }
 }
-
 
 
 struct Motor
@@ -356,12 +360,12 @@ int main(int argc, char** argv)
 
   //Setup edge detection for sonar PW inputs
 	bcm2835_gpio_fsel(SONAR1, BCM2835_GPIO_FSEL_INPT);
-	bcm2835_gpio_aren(SONAR1);
-	bcm2835_gpio_afen(SONAR1);
+	//bcm2835_gpio_aren(SONAR1);
+	//bcm2835_gpio_afen(SONAR1);
 
 	bcm2835_gpio_fsel(SONAR2, BCM2835_GPIO_FSEL_INPT);
-	bcm2835_gpio_aren(SONAR2);
-	bcm2835_gpio_afen(SONAR2);
+	//bcm2835_gpio_aren(SONAR2);
+	//bcm2835_gpio_afen(SONAR2);
 
 	debug("Standby off.\n");
 	bcm2835_gpio_set(STBY);
@@ -387,6 +391,8 @@ int main(int argc, char** argv)
     //Hold the RX pin for at least SONAR_TRIGGER_TIME to trigger a range operation
     if (bcm2835_gpio_lev(SONAR_TRIGGER) == HIGH && cTime - sTime > SONAR_TRIGGER_TIME) {
       debug("%llu: Clearing RX pin\n", cTime);
+      bcm2835_gpio_aren(SONAR1);
+      bcm2835_gpio_aren(SONAR2);
       bcm2835_gpio_clr(SONAR_TRIGGER);
       sTime = cTime;
     }
