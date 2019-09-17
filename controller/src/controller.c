@@ -54,8 +54,8 @@
 
 #define PWM_RANGE 1024
 #define MOTOR_TICK_DELAY  1000000000LL //1000ms //100000000LL //100ms
-//#define REFRESH_SPEED      250000000LL  //250ms
-#define REFRESH_SPEED      1000000000LL  //1000ms
+#define REFRESH_SPEED      250000000LL  //250ms
+//#define REFRESH_SPEED      1000000000LL  //1000ms
 
 // Sonar/Range sensors
 #define SONAR1  RPI_BPLUS_GPIO_J8_29 //BCM5
@@ -95,7 +95,7 @@ int comparse(int argc, char** argv)
 		{
 			case 'v': //version
 				printf("%s %s\n", argv[0], DRD_VERSION);
-				printf("Copyright (C) 2014-2016 Nick Earwood <http://www.nearwood.net/>\n");
+				printf("Copyright (C) 2014-2019 Nick Earwood <http://www.nearwood.net/>\n");
 				printf("This is free software; see the source for copying conditions.\n");
 				printf("There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
 				exit(EXIT_SUCCESS);
@@ -175,10 +175,10 @@ uint8_t encoderTick(uint8_t pin)
 
 //If rising, mark time
 //If falling, subtract time to get pulse width in microseconds
-//sonarUpdate(SONAR1, &cTime, &sonarTimeA);
 void sonarUpdate(uint8_t pin, uint64_t* cTime, uint64_t* sTime, float* distance)
 {
-  //TODO Consider enabling afen only after a trigger with aren.
+  //TODO Check leaving afen/aren on and toggling or,
+  // enabling afen only after a trigger with aren (what it's doing now).
   static uint8_t pin1High = 0, pin2High = 0;
   uint8_t event = encoderTick(pin);
 
@@ -202,10 +202,13 @@ void sonarUpdate(uint8_t pin, uint64_t* cTime, uint64_t* sTime, float* distance)
     }
   } else if (pin == SONAR2) {
     if (pin2High) {
+      bcm2835_gpio_clr_afen(pin);
       uint64_t dt = (uint64_t)(*cTime) - (uint64_t)(*sTime);
       *distance = (float)dt / 147000.0f;
       pin2High = 0;
     } else {
+      bcm2835_gpio_clr_aren(pin);
+      bcm2835_gpio_afen(pin);
       //mark time
       *sTime = *cTime;
       pin2High = 1;
@@ -414,8 +417,8 @@ int main(int argc, char** argv)
 			{
 				motorPrint(1, 0, &motorA);
 				motorPrint(2, 0, &motorB);
-	      mvprintw(1, 32, "%04f", sonarDistanceA);
-	      mvprintw(2, 32, "%04f", sonarDistanceB);
+	      mvprintw(1, 32, "%04.1f", sonarDistanceA);
+	      mvprintw(2, 32, "%04.1f", sonarDistanceB);
 				refresh();
 			}
 
