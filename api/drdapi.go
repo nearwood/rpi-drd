@@ -16,6 +16,7 @@ type Version struct {
 func apiVersion(w http.ResponseWriter, req *http.Request) {
 	version := Version{Controller: "0.1", Api: "1.0"}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(version)
 }
