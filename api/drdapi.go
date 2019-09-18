@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"time"
 )
 
 type Version struct {
@@ -18,6 +19,7 @@ func apiVersion(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
+	time.Sleep(3 * time.Second)
 	json.NewEncoder(w).Encode(version)
 }
 
