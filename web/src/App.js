@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 //import logo from './logo.svg';
 import './App.css';
 import { ThemeProvider, createTheme, Content, Words, Header, Loading, Footer, Arwes } from 'arwes';
@@ -11,6 +11,10 @@ const App = () => {
     'http://drd:4482/version',
     { version: {} }
   );
+
+  useEffect(() => {
+    doFetch();
+  }, [doFetch]);
 
   return (
     <ThemeProvider theme={createTheme()}>
