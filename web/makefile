@@ -7,4 +7,4 @@ DRD=drd
 all: upload
 
 upload:
-	rsync -r . root@$(DRD):/srv/http/ --exclude makefile
+	rsync -rv build/* alarm@$(DRD):/srv/http/ --exclude makefile
