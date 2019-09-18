@@ -16,12 +16,12 @@ DRD=drd#192.168.2.134
 
 .PHONY: all clean upload
 
-all: $(TARGET)
+all: bin/$(TARGET)
 
-$(TARGET): $(OBJ) | bin
+bin/$(TARGET): $(OBJ) | bin
 	$(PREFIX)gcc -o $@ $(OBJ) $(LDFLAGS)
-	$(PREFIX)strip $(TARGET)
-	@$(PREFIX)size -A $(TARGET) | grep "Total"
+	$(PREFIX)strip $@
+	@$(PREFIX)size -A $@ | grep "Total"
 
 $(OBJ): | build
 
@@ -34,8 +34,8 @@ build:
 build/%.o: src/%.c
 	$(PREFIX)gcc $(CFLAGS) -I $(INCLUDE) -c $< -o $@
 
-upload: $(TARGET)
-	scp $(TARGET) alarm@$(DRD):~/$(TARGET)
+upload: bin/$(TARGET)
+	scp -p bin/$(TARGET) alarm@$(DRD):~/$(TARGET)
 
 clean:
-	rm -rvf $(TARGET) build
+	rm -rvf build bin
